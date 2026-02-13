@@ -635,8 +635,7 @@
   const avatarContainer = document.getElementById('avatarContainer');
 
   // API
-  const API_ENDPOINT = 'https://isl2gloss.justinbenito.com/convert';
-  const CORS_PROXY = 'https://corsproxy.io/?';
+  const GLOSS_ENDPOINT = '/api/convert';  // Local proxy to avoid CORS
   const TRANSCRIBE_ENDPOINT = '/api/transcribe';
 
   // FBX files to load
@@ -1652,8 +1651,7 @@
     try {
       updateStatus(true, 'Translating...');
 
-      const proxyUrl = CORS_PROXY + encodeURIComponent(API_ENDPOINT);
-      const response = await fetch(proxyUrl, {
+      const response = await fetch(GLOSS_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sentence })
