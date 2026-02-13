@@ -1,0 +1,1679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ISL Translator - Indian Sign Language</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg-primary: #ffffff;
+      --bg-secondary: #fafafa;
+      --bg-tertiary: #f5f5f5;
+      --bg-dark: #18181b;
+      --text-primary: #09090b;
+      --text-secondary: #71717a;
+      --text-muted: #a1a1aa;
+      --border-color: #e4e4e7;
+      --border-dark: #27272a;
+      --radius-sm: 6px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --radius-xl: 16px;
+      --radius-2xl: 24px;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Header */
+    .header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      background: var(--bg-primary);
+      border-bottom: 1px solid var(--border-color);
+      z-index: 100;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-icon {
+      width: 32px;
+      height: 32px;
+      background: var(--bg-dark);
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .logo-icon svg {
+      width: 18px;
+      height: 18px;
+      color: white;
+    }
+
+    .logo-text {
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.3px;
+      color: var(--text-primary);
+    }
+
+    .header-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #22c55e;
+    }
+
+    .status-dot.loading {
+      background: var(--text-muted);
+      animation: pulse 1.5s infinite;
+    }
+
+    .status-dot.recording {
+      background: #ef4444;
+      animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* Main Layout */
+    .main-container {
+      display: flex;
+      height: calc(100vh - 56px);
+      margin-top: 56px;
+    }
+
+    /* Left Panel - Transcription */
+    .left-panel {
+      width: 400px;
+      min-width: 400px;
+      display: flex;
+      flex-direction: column;
+      padding: 24px;
+      border-right: 1px solid var(--border-color);
+      background: var(--bg-primary);
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .panel-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .mic-button {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-color);
+      background: var(--bg-primary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s ease;
+    }
+
+    .mic-button:hover {
+      background: var(--bg-secondary);
+    }
+
+    .mic-button.active {
+      background: var(--bg-dark);
+      border-color: var(--bg-dark);
+    }
+
+    .mic-button.active svg {
+      color: white;
+    }
+
+    .mic-button svg {
+      width: 18px;
+      height: 18px;
+      color: var(--text-secondary);
+    }
+
+    /* Transcription Box */
+    .transcription-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-xl);
+      overflow: hidden;
+    }
+
+    .transcription-content {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--text-primary);
+    }
+
+    .transcription-placeholder {
+      color: var(--text-muted);
+      font-style: italic;
+    }
+
+    .transcription-text {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    .transcription-footer {
+      padding: 12px 16px;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg-primary);
+    }
+
+    .recording-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .recording-indicator.active {
+      color: #ef4444;
+    }
+
+    .recording-indicator .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-muted);
+    }
+
+    .recording-indicator.active .dot {
+      background: #ef4444;
+      animation: pulse 1s infinite;
+    }
+
+    .translate-btn {
+      padding: 8px 16px;
+      background: var(--bg-dark);
+      color: white;
+      border: none;
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: opacity 0.15s ease;
+    }
+
+    .translate-btn:hover {
+      opacity: 0.9;
+    }
+
+    .translate-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Right Panel - 3D View */
+    .right-panel {
+      flex: 1;
+      position: relative;
+      background: var(--bg-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .avatar-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    #threeCanvas {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Current Sign Label */
+    .sign-info {
+      position: absolute;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      z-index: 10;
+    }
+
+    .sign-label {
+      padding: 10px 24px;
+      background: var(--bg-dark);
+      color: white;
+      border-radius: var(--radius-lg);
+      font-size: 14px;
+      font-weight: 500;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+
+    .sign-label.visible {
+      opacity: 1;
+    }
+
+    .sign-counter {
+      font-size: 12px;
+      color: var(--text-muted);
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+
+    .sign-counter.visible {
+      opacity: 1;
+    }
+
+    /* Gloss Queue */
+    .gloss-queue {
+      position: absolute;
+      top: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 80%;
+      z-index: 10;
+    }
+
+    .gloss-token {
+      padding: 4px 10px;
+      background: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      transition: all 0.2s ease;
+    }
+
+    .gloss-token.active {
+      background: var(--bg-dark);
+      color: white;
+      border-color: var(--bg-dark);
+    }
+
+    .gloss-token.completed {
+      opacity: 0.4;
+    }
+
+    /* Loading Overlay */
+    .loading-overlay {
+      position: fixed;
+      inset: 0;
+      background: var(--bg-primary);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      transition: opacity 0.4s ease, visibility 0.4s ease;
+    }
+
+    .loading-overlay.hidden {
+      opacity: 0;
+      visibility: hidden;
+    }
+
+    .loader {
+      width: 40px;
+      height: 40px;
+      border: 2px solid var(--border-color);
+      border-top-color: var(--bg-dark);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+      margin-top: 16px;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      padding: 12px 20px;
+      background: var(--bg-dark);
+      color: white;
+      border-radius: var(--radius-lg);
+      font-size: 13px;
+      font-weight: 500;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: all 0.2s ease;
+      z-index: 1000;
+    }
+
+    .toast.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Manual Input Section */
+    .manual-input-section {
+      padding: 16px;
+      border-top: 1px solid var(--border-color);
+      background: var(--bg-primary);
+    }
+
+    .input-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .text-input {
+      flex: 1;
+      padding: 10px 14px;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      font-family: inherit;
+      font-size: 14px;
+      color: var(--text-primary);
+      background: var(--bg-secondary);
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+
+    .text-input:focus {
+      border-color: var(--bg-dark);
+    }
+
+    .text-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .send-button {
+      width: 40px;
+      height: 40px;
+      border: none;
+      border-radius: var(--radius-md);
+      background: var(--bg-dark);
+      color: white;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.15s ease;
+    }
+
+    .send-button:hover {
+      opacity: 0.9;
+    }
+
+    .send-button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .send-button svg {
+      width: 18px;
+      height: 18px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loader"></div>
+  <div class="loading-text" id="loadingText">Loading ISL Models...</div>
+</div>
+
+<!-- Header -->
+<header class="header">
+  <div class="logo">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"></path>
+        <path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"></path>
+        <path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"></path>
+        <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"></path>
+      </svg>
+    </div>
+    <div class="logo-text">ISL Translator</div>
+  </div>
+  <div style="display: flex; align-items: center; gap: 12px;">
+    <button id="debugBtn" style="padding: 6px 12px; background: #18181b; color: white; border: none; border-radius: 8px; font-size: 12px; cursor: pointer; display: none;">Debug: Play All</button>
+    <div class="header-status">
+      <div class="status-dot loading" id="statusDot"></div>
+      <span id="statusText">Loading...</span>
+    </div>
+  </div>
+</header>
+
+<!-- Main Layout -->
+<div class="main-container">
+  <!-- Left Panel - Transcription -->
+  <div class="left-panel">
+    <div class="panel-header">
+      <span class="panel-title">Live Transcription</span>
+      <button class="mic-button" id="micButton" title="Toggle microphone">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+          <line x1="12" x2="12" y1="19" y2="22"></line>
+        </svg>
+      </button>
+    </div>
+
+    <div class="transcription-container">
+      <div class="transcription-content" id="transcriptionContent">
+        <div class="transcription-placeholder" id="transcriptionPlaceholder">Click the microphone to start speaking...</div>
+        <div class="transcription-text" id="transcriptionText"></div>
+      </div>
+      <div class="transcription-footer">
+        <div class="recording-indicator" id="recordingIndicator">
+          <div class="dot"></div>
+          <span id="recordingStatus">Ready</span>
+        </div>
+        <button class="translate-btn" id="translateBtn" disabled>Translate to ISL</button>
+      </div>
+    </div>
+
+    <!-- Manual Input -->
+    <div class="manual-input-section">
+      <div class="input-label">Or type manually</div>
+      <div class="input-row">
+        <input type="text" class="text-input" id="textInput" placeholder="Type a sentence..." disabled />
+        <button class="send-button" id="sendButton" disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="19" x2="12" y2="5"></line>
+            <polyline points="5 12 12 5 19 12"></polyline>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Direct Test Input (bypasses API) -->
+    <div class="manual-input-section" style="border-top: 1px dashed #e4e4e7;">
+      <div class="input-label">Direct Test (comma-separated: food,eat,you)</div>
+      <div class="input-row">
+        <input type="text" class="text-input" id="directTestInput" placeholder="food,eat,you" style="font-family: monospace;" />
+        <button class="send-button" id="directTestBtn" style="background: #71717a;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Panel - 3D View -->
+  <div class="right-panel">
+    <div class="avatar-container" id="avatarContainer">
+      <!-- Three.js canvas will be inserted here -->
+    </div>
+
+    <!-- Gloss Queue -->
+    <div class="gloss-queue" id="glossQueue"></div>
+
+    <!-- Sign Info -->
+    <div class="sign-info">
+      <div class="sign-counter" id="signCounter"></div>
+      <div class="sign-label" id="signLabel"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+  import * as THREE from "three";
+  import { FBXLoader } from "three/addons/loaders/FBXLoader.js";
+  import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+  // DOM Elements
+  const loadingOverlay = document.getElementById('loadingOverlay');
+  const loadingText = document.getElementById('loadingText');
+  const statusDot = document.getElementById('statusDot');
+  const statusText = document.getElementById('statusText');
+  const glossQueue = document.getElementById('glossQueue');
+  const signLabel = document.getElementById('signLabel');
+  const signCounter = document.getElementById('signCounter');
+  const textInput = document.getElementById('textInput');
+  const sendButton = document.getElementById('sendButton');
+  const toast = document.getElementById('toast');
+  const micButton = document.getElementById('micButton');
+  const transcriptionText = document.getElementById('transcriptionText');
+  const transcriptionPlaceholder = document.getElementById('transcriptionPlaceholder');
+  const recordingIndicator = document.getElementById('recordingIndicator');
+  const recordingStatus = document.getElementById('recordingStatus');
+  const translateBtn = document.getElementById('translateBtn');
+  const avatarContainer = document.getElementById('avatarContainer');
+
+  // API
+  const API_ENDPOINT = 'https://isl2gloss.justinbenito.com/convert';
+  const CORS_PROXY = 'https://corsproxy.io/?';
+  const TRANSCRIBE_ENDPOINT = '/api/transcribe';
+
+  // FBX files to load
+  const FBX_FILES = [
+    '/models/plswork_fyp.fbx',
+    '/models/e2g.fbx',
+    '/models/h2k.fbx',
+    '/models/l2n.fbx',
+    '/models/o2r.fbx',
+    '/models/common.fbx',
+  ];
+
+  // Audio Recording State - Double buffer for seamless recording
+  let isRecording = false;
+  let mediaRecorder1 = null;
+  let mediaRecorder2 = null;
+  let audioChunks1 = [];
+  let audioChunks2 = [];
+  let activeRecorder = 1;
+  let recordingInterval = null;
+  let audioStream = null;
+  let fullTranscription = '';
+  let processedText = '';  // Text that has been translated
+  let pendingText = '';    // Text waiting for sentence completion
+
+  // Sentence queue for streaming translation
+  let sentenceQueue = [];
+  let isProcessingQueue = false;
+
+  // Toast
+  function showToast(message, duration = 3000) {
+    toast.textContent = message;
+    toast.classList.add('visible');
+    setTimeout(() => toast.classList.remove('visible'), duration);
+  }
+
+  // Update status
+  function updateStatus(loading, text) {
+    statusDot.className = 'status-dot' + (loading ? ' loading' : '');
+    statusText.textContent = text;
+  }
+
+  // Function to extract clean sign name from animation clip name
+  function getSignName(clipName) {
+    let name = clipName;
+    name = name.replace("Armature|", "");
+    name = name.replace("Skeleton|", "");
+    name = name.replace("|Layer0", "");
+    name = name.replace(" Retarget", "");
+    name = name.replace("_Retarget", "");
+    name = name.replace(".mp4", "");
+    name = name.replace(/_Editted/gi, "");
+    name = name.replace(/_Edited/gi, "");
+    name = name.replace(/\|/g, " ");
+    name = name.replace(/_/g, " ");
+    name = name.replace(/\s+/g, " ").trim();
+    return name;
+  }
+
+  // Function to update sign display
+  function updateSignDisplay(clipName, currentIdx, totalCount) {
+    const signName = getSignName(clipName);
+    signLabel.textContent = signName;
+    signLabel.classList.add("visible");
+    signCounter.textContent = `${currentIdx} of ${totalCount}`;
+    signCounter.classList.add("visible");
+  }
+
+  // Function to hide sign display
+  function hideSignDisplay() {
+    signLabel.classList.remove("visible");
+    signCounter.classList.remove("visible");
+  }
+
+  // Update gloss queue display
+  function updateGlossQueue(tokens, currentIndex) {
+    glossQueue.innerHTML = '';
+    tokens.forEach((token, index) => {
+      const el = document.createElement('div');
+      el.className = 'gloss-token';
+      if (index < currentIndex) el.classList.add('completed');
+      if (index === currentIndex) el.classList.add('active');
+      el.textContent = token;
+      glossQueue.appendChild(el);
+    });
+  }
+
+  function clearGlossQueue() {
+    glossQueue.innerHTML = '';
+  }
+
+  // ==================== AUDIO RECORDING ====================
+
+  async function initAudioRecording() {
+    try {
+      audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      // Create two MediaRecorders for seamless recording
+      mediaRecorder1 = new MediaRecorder(audioStream, { mimeType: 'audio/webm' });
+      mediaRecorder2 = new MediaRecorder(audioStream, { mimeType: 'audio/webm' });
+
+      mediaRecorder1.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunks1.push(e.data);
+      };
+
+      mediaRecorder2.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunks2.push(e.data);
+      };
+
+      mediaRecorder1.onstop = () => {
+        if (audioChunks1.length > 0) {
+          const audioBlob = new Blob(audioChunks1, { type: 'audio/webm' });
+          sendToTranscription(audioBlob);
+          audioChunks1 = [];
+        }
+      };
+
+      mediaRecorder2.onstop = () => {
+        if (audioChunks2.length > 0) {
+          const audioBlob = new Blob(audioChunks2, { type: 'audio/webm' });
+          sendToTranscription(audioBlob);
+          audioChunks2 = [];
+        }
+      };
+
+      return true;
+    } catch (error) {
+      console.error('Failed to initialize audio:', error);
+      showToast('Microphone access denied');
+      return false;
+    }
+  }
+
+  function startRecording() {
+    if (!audioStream) return;
+
+    isRecording = true;
+    micButton.classList.add('active');
+    recordingIndicator.classList.add('active');
+    recordingStatus.textContent = 'Recording...';
+    statusDot.classList.add('recording');
+    statusDot.classList.remove('loading');
+    updateStatus(false, 'Recording...');
+    transcriptionPlaceholder.style.display = 'none';
+
+    // Start first recorder
+    activeRecorder = 1;
+    audioChunks1 = [];
+    mediaRecorder1.start();
+
+    // Every 5 seconds, switch recorders to ensure no gaps
+    recordingInterval = setInterval(() => {
+      if (!isRecording) return;
+
+      if (activeRecorder === 1) {
+        // Start recorder 2 before stopping recorder 1
+        audioChunks2 = [];
+        mediaRecorder2.start();
+        activeRecorder = 2;
+
+        // Stop recorder 1 after small delay to ensure overlap
+        setTimeout(() => {
+          if (mediaRecorder1.state === 'recording') {
+            mediaRecorder1.stop();
+          }
+        }, 100);
+      } else {
+        // Start recorder 1 before stopping recorder 2
+        audioChunks1 = [];
+        mediaRecorder1.start();
+        activeRecorder = 1;
+
+        // Stop recorder 2 after small delay to ensure overlap
+        setTimeout(() => {
+          if (mediaRecorder2.state === 'recording') {
+            mediaRecorder2.stop();
+          }
+        }, 100);
+      }
+    }, 5000);
+  }
+
+  function stopRecording() {
+    isRecording = false;
+    micButton.classList.remove('active');
+    recordingIndicator.classList.remove('active');
+    recordingStatus.textContent = 'Stopped';
+    statusDot.classList.remove('recording');
+
+    clearInterval(recordingInterval);
+
+    // Stop both recorders
+    if (mediaRecorder1 && mediaRecorder1.state === 'recording') {
+      mediaRecorder1.stop();
+    }
+    if (mediaRecorder2 && mediaRecorder2.state === 'recording') {
+      mediaRecorder2.stop();
+    }
+
+    // Process any remaining pending text
+    setTimeout(() => {
+      if (pendingText.trim()) {
+        sentenceQueue.push(pendingText.trim());
+        processedText += (processedText ? ' ' : '') + pendingText.trim();
+        pendingText = '';
+        if (!isProcessingQueue && !isTranslating) {
+          processNextSentence();
+        }
+      }
+    }, 500); // Wait for final transcription to arrive
+  }
+
+  async function sendToTranscription(audioBlob) {
+    try {
+      const formData = new FormData();
+      formData.append('audio', audioBlob, 'audio.webm');
+
+      const response = await fetch(TRANSCRIBE_ENDPOINT, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        console.error('Transcription failed:', response.status);
+        return;
+      }
+
+      const data = await response.json();
+      if (data.text && data.text.trim()) {
+        appendTranscription(data.text.trim());
+      }
+    } catch (error) {
+      console.error('Transcription error:', error);
+    }
+  }
+
+  function appendTranscription(text) {
+    // Add to pending text
+    if (pendingText) {
+      pendingText += ' ' + text;
+    } else {
+      pendingText = text;
+    }
+
+    // Update full transcription display
+    fullTranscription = processedText + (processedText ? ' ' : '') + pendingText;
+    transcriptionText.textContent = fullTranscription;
+    translateBtn.disabled = false;
+
+    // Scroll to bottom
+    const container = document.getElementById('transcriptionContent');
+    container.scrollTop = container.scrollHeight;
+
+    // Check for complete sentences and auto-translate
+    extractAndQueueSentences();
+  }
+
+  // Extract complete sentences and queue them for translation
+  function extractAndQueueSentences() {
+    // Match sentences ending with . ! or ?
+    const sentenceRegex = /[^.!?]*[.!?]+/g;
+    let match;
+    let lastIndex = 0;
+
+    while ((match = sentenceRegex.exec(pendingText)) !== null) {
+      const sentence = match[0].trim();
+      if (sentence.length > 0) {
+        // Add to queue
+        sentenceQueue.push(sentence);
+        console.log('Queued sentence:', sentence);
+        lastIndex = sentenceRegex.lastIndex;
+      }
+    }
+
+    // Update pending text to remaining unprocessed text
+    if (lastIndex > 0) {
+      const completedText = pendingText.substring(0, lastIndex).trim();
+      processedText += (processedText ? ' ' : '') + completedText;
+      pendingText = pendingText.substring(lastIndex).trim();
+    }
+
+    // Start processing queue if not already processing
+    if (!isProcessingQueue && sentenceQueue.length > 0) {
+      processNextSentence();
+    }
+  }
+
+  // Process next sentence in queue
+  async function processNextSentence() {
+    if (sentenceQueue.length === 0) {
+      isProcessingQueue = false;
+      if (!isTranslating) {
+        updateStatus(false, isRecording ? 'Recording...' : 'Ready');
+      }
+      return;
+    }
+
+    isProcessingQueue = true;
+    const sentence = sentenceQueue.shift();
+    console.log('Processing sentence:', sentence);
+
+    // Translate and play (will call processNextSentence when done)
+    await handleStreamingTranslate(sentence);
+  }
+
+  // Mic button click handler
+  micButton.addEventListener('click', async () => {
+    if (!audioStream) {
+      const success = await initAudioRecording();
+      if (!success) return;
+    }
+
+    if (isRecording) {
+      stopRecording();
+    } else {
+      // Reset state for new recording session
+      fullTranscription = '';
+      processedText = '';
+      pendingText = '';
+      sentenceQueue = [];
+      transcriptionText.textContent = '';
+      startRecording();
+    }
+  });
+
+  // Translate button - translate any remaining pending text
+  translateBtn.addEventListener('click', () => {
+    if (pendingText.trim()) {
+      sentenceQueue.push(pendingText.trim());
+      processedText += (processedText ? ' ' : '') + pendingText.trim();
+      pendingText = '';
+      if (!isProcessingQueue) {
+        processNextSentence();
+      }
+    }
+  });
+
+  // ==================== THREE.JS SETUP ====================
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0xfafafa);
+
+  const camera = new THREE.PerspectiveCamera(
+    35,
+    avatarContainer.clientWidth / avatarContainer.clientHeight,
+    0.1,
+    100
+  );
+  // Position camera to focus on head to hips
+  camera.position.set(0, 1.2, 2.5);
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(avatarContainer.clientWidth, avatarContainer.clientHeight);
+  renderer.setPixelRatio(window.devicePixelRatio);
+  avatarContainer.appendChild(renderer.domElement);
+
+  // Controls
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.target.set(0, 1.1, 0);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.05;
+  controls.enablePan = false;
+  controls.minDistance = 1.5;
+  controls.maxDistance = 4;
+  controls.update();
+
+  // Lights - Clean, flat lighting for monochrome look
+  const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
+  scene.add(ambientLight);
+
+  const dirLight1 = new THREE.DirectionalLight(0xffffff, 0.8);
+  dirLight1.position.set(5, 10, 5);
+  scene.add(dirLight1);
+
+  const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.5);
+  dirLight2.position.set(-5, 5, -5);
+  scene.add(dirLight2);
+
+  // Animation variables
+  let mixer;
+  let actions = [];
+  let clips = [];
+  let currentIndex = 0;
+  let isPlaying = false;
+  let currentAction = null;
+  let nextAnimationScheduled = false;
+  let playbackSequence = null;
+  const FADE_DURATION = 0.25; // Shorter fade for quicker transitions
+
+  // Gloss playback state
+  let glossTokens = [];
+  let glossIndex = 0;
+  let isTranslating = false;
+
+  const loader = new FBXLoader();
+  let loadedFilesCount = 0;
+  let allLoadedClips = [];
+
+  // Load all FBX files
+  async function loadAllFBX() {
+    let mainFbx = null;
+
+    for (let i = 0; i < FBX_FILES.length; i++) {
+      const file = FBX_FILES[i];
+      loadingText.textContent = `Loading model ${i + 1}/${FBX_FILES.length}...`;
+
+      try {
+        const fbx = await new Promise((resolve, reject) => {
+          loader.load(
+            file,
+            (fbx) => resolve(fbx),
+            (xhr) => {
+              const percent = Math.round((xhr.loaded / xhr.total) * 100);
+              loadingText.textContent = `Loading model ${i + 1}/${FBX_FILES.length}: ${percent}%`;
+            },
+            (error) => reject(error)
+          );
+        });
+
+        console.log(`Loaded: ${file}, animations: ${fbx.animations?.length || 0}`);
+
+        if (fbx.animations) {
+          allLoadedClips.push(...fbx.animations);
+        }
+
+        if (i === 0) {
+          mainFbx = fbx;
+        }
+
+        loadedFilesCount++;
+      } catch (error) {
+        console.error(`Error loading ${file}:`, error);
+      }
+    }
+
+    return mainFbx;
+  }
+
+  // Initialize
+  loadAllFBX().then((fbx) => {
+    if (!fbx) {
+      loadingText.textContent = 'Failed to load models';
+      return;
+    }
+
+    // Fix materials - white/gray for monochrome look
+    fbx.traverse((child) => {
+      if (child.isMesh) {
+        child.visible = true;
+        child.frustumCulled = false;
+
+        const originalMat = child.material;
+        const newMaterial = new THREE.MeshPhongMaterial({
+          color: 0xffffff,
+          side: THREE.DoubleSide,
+          flatShading: false
+        });
+
+        if (originalMat) {
+          if (originalMat.map) newMaterial.map = originalMat.map;
+          if (originalMat.normalMap) newMaterial.normalMap = originalMat.normalMap;
+        }
+
+        child.material = newMaterial;
+        child.material.needsUpdate = true;
+      }
+    });
+
+    fbx.visible = true;
+    scene.add(fbx);
+
+    // Scale and position for head-to-hips view
+    fbx.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(fbx);
+    const center = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+
+    const scaleFactor = 2 / size.y;
+    fbx.scale.setScalar(scaleFactor);
+
+    fbx.position.x = -center.x * scaleFactor;
+    fbx.position.y = -center.y * scaleFactor;
+    fbx.position.z = -center.z * scaleFactor;
+
+    // Camera positioned for head-to-hips focus
+    camera.position.set(0, 1.2, 2.5);
+    camera.lookAt(0, 1.1, 0);
+    controls.target.set(0, 1.1, 0);
+    controls.update();
+
+    // Setup mixer
+    mixer = new THREE.AnimationMixer(fbx);
+    clips = allLoadedClips.filter(clip => clip.duration > 0);
+    console.log(`Total animations loaded: ${clips.length}`);
+    console.log('All animations:');
+    clips.forEach((clip, i) => {
+      console.log(`${i + 1}. ${getSignName(clip.name)}`);
+    });
+
+    buildSignIndex();
+
+    actions = clips.map(clip => {
+      const action = mixer.clipAction(clip);
+      action.loop = THREE.LoopOnce;
+      action.clampWhenFinished = false;
+      action.setEffectiveWeight(0);
+      return action;
+    });
+
+    // Set initial pose
+    if (actions.length > 0) {
+      const firstAction = actions[0];
+      firstAction.reset();
+      firstAction.play();
+      firstAction.time = 0.5;
+      firstAction.paused = true;
+      mixer.update(0);
+    }
+
+    // Hide loading, enable input
+    loadingOverlay.classList.add('hidden');
+    updateStatus(false, `Ready - ${clips.length} signs`);
+    textInput.disabled = false;
+    sendButton.disabled = false;
+    showToast(`Loaded ${clips.length} sign animations`);
+
+    // Show debug button
+    const debugBtn = document.getElementById('debugBtn');
+    debugBtn.style.display = 'block';
+    debugBtn.addEventListener('click', startDebugPlayback);
+
+    // Also log the sign index for debugging
+    console.log('Sign name index:');
+    signNameToIndex.forEach((idx, name) => {
+      console.log(`  "${name}" -> ${idx}`);
+    });
+  });
+
+  // Crossfade function
+  function crossfade(fromAction, toAction, duration) {
+    if (fromAction) {
+      fromAction.fadeOut(duration);
+    }
+    if (toAction) {
+      toAction.reset();
+      toAction.setEffectiveWeight(1);
+      toAction.enabled = true;
+      toAction.fadeIn(duration);
+      toAction.play();
+    }
+  }
+
+  // Frame-based animation end points (animations are 250 frames but actual signs end earlier)
+  const FPS = 30; // Assuming 30 fps
+  const ANIMATION_END_FRAMES = {
+    'eat': 106,
+    'you': 82,
+    'food': 97,
+    'want': 97,
+    'happy': 78,
+    'where': 73,
+    'i': 144,
+    'which': 91,
+    'what': 77,
+  };
+
+  // Get actual duration for an animation (in seconds)
+  function getAnimationDuration(clipName) {
+    const signName = getSignName(clipName).toLowerCase();
+    const endFrame = ANIMATION_END_FRAMES[signName];
+    if (endFrame) {
+      return endFrame / FPS;
+    }
+    // Default: use full clip duration but cap at 3 seconds
+    return Math.min(3, 250 / FPS);
+  }
+
+  // Debug playback - play all animations one by one
+  let debugIndex = 0;
+  let debugPlaying = false;
+
+  function startDebugPlayback() {
+    if (debugPlaying) {
+      debugPlaying = false;
+      document.getElementById('debugBtn').textContent = 'Debug: Play All';
+      hideSignDisplay();
+      return;
+    }
+
+    debugPlaying = true;
+    debugIndex = 0;
+    document.getElementById('debugBtn').textContent = 'Stop Debug';
+    playNextDebugAnimation();
+  }
+
+  let debugCurrentAction = null;
+
+  function playNextDebugAnimation() {
+    if (!debugPlaying || debugIndex >= actions.length) {
+      debugPlaying = false;
+      document.getElementById('debugBtn').textContent = 'Debug: Play All';
+      if (debugCurrentAction) {
+        debugCurrentAction.fadeOut(FADE_DURATION);
+      }
+      hideSignDisplay();
+      showToast('Debug playback complete');
+      return;
+    }
+
+    const action = actions[debugIndex];
+    const clip = clips[debugIndex];
+    const signName = getSignName(clip.name);
+    const customDuration = getAnimationDuration(clip.name);
+
+    console.log(`Playing debug ${debugIndex + 1}/${actions.length}: "${signName}" for ${customDuration.toFixed(2)}s`);
+
+    // Crossfade from previous to new
+    if (debugCurrentAction && debugCurrentAction !== action) {
+      debugCurrentAction.fadeOut(FADE_DURATION);
+    }
+
+    // Play this action
+    action.reset();
+    action.setEffectiveWeight(1);
+    action.enabled = true;
+    action.fadeIn(FADE_DURATION);
+    action.play();
+    debugCurrentAction = action;
+
+    // Update display
+    signLabel.textContent = `${debugIndex + 1}. ${signName}`;
+    signLabel.classList.add('visible');
+    signCounter.textContent = `Animation ${debugIndex + 1} of ${actions.length}`;
+    signCounter.classList.add('visible');
+    updateStatus(true, `Debug: ${signName}`);
+
+    debugIndex++;
+
+    // Schedule next animation at end frame time
+    const waitTime = (customDuration - FADE_DURATION) * 1000;
+    setTimeout(() => {
+      if (debugPlaying) {
+        playNextDebugAnimation();
+      }
+    }, Math.max(waitTime, 200));
+  }
+
+  // ISL Gloss to Sign Name mapping
+  // Available animations: Food, You, Where, Eat, I, want, Which, Happy, What
+  const GLOSS_TO_SIGN = {
+    // Direct mappings
+    'I': 'I',
+    'ME': 'I',
+    'IX-1': 'I',
+    'PRO-1': 'I',
+    'YOU': 'You',
+    'IX-2': 'You',
+    'YOUR': 'You',
+    'WANT': 'want',
+    'NEED': 'want',
+    'DESIRE': 'want',
+    'EAT': 'Eat',
+    'EATING': 'Eat',
+    'FOOD': 'Food',
+    'MEAL': 'Food',
+    'LUNCH': 'Food',
+    'DINNER': 'Food',
+    'BREAKFAST': 'Food',
+    'WHERE': 'Where',
+    'LOCATION': 'Where',
+    'PLACE': 'Where',
+    'WHAT': 'What',
+    'WHICH': 'Which',
+    'HAPPY': 'Happy',
+    'JOY': 'Happy',
+    'GLAD': 'Happy',
+    'PLEASED': 'Happy',
+    'LIKE': 'Happy',
+    'LOVE': 'Happy',
+  };
+
+  let signNameToIndex = new Map();
+
+  function buildSignIndex() {
+    signNameToIndex.clear();
+    console.log('=== Building Sign Index ===');
+    for (let i = 0; i < clips.length; i++) {
+      const rawName = clips[i].name;
+      const cleanName = getSignName(rawName);
+      const lowerName = cleanName.toLowerCase();
+      console.log(`  ${i}: "${rawName}" -> "${cleanName}" -> "${lowerName}"`);
+      if (!signNameToIndex.has(lowerName)) {
+        signNameToIndex.set(lowerName, i);
+      }
+    }
+    console.log('=== Sign Index Complete ===');
+    console.log('Indexed names:', Array.from(signNameToIndex.keys()));
+  }
+
+  function findAnimationIndex(token) {
+    if (!token || token === '-') return -1;
+
+    const glossUpper = token.toUpperCase().trim();
+    const glossClean = glossUpper.replace(/-/g, ' ').replace(/[^A-Z0-9\s]/g, '').trim();
+
+    if (token.startsWith('FS:')) {
+      const word = token.substring(3);
+      console.log(`Fingerspelling: ${word} - no sign available`);
+      return -1;
+    }
+
+    if (GLOSS_TO_SIGN[glossUpper]) {
+      const signName = GLOSS_TO_SIGN[glossUpper].toLowerCase();
+      if (signNameToIndex.has(signName)) {
+        console.log(`Gloss mapping: ${glossUpper} -> ${signName}`);
+        return signNameToIndex.get(signName);
+      }
+    }
+
+    if (GLOSS_TO_SIGN[glossClean]) {
+      const signName = GLOSS_TO_SIGN[glossClean].toLowerCase();
+      if (signNameToIndex.has(signName)) {
+        console.log(`Gloss mapping (clean): ${glossClean} -> ${signName}`);
+        return signNameToIndex.get(signName);
+      }
+    }
+
+    const searchLower = glossClean.toLowerCase();
+    if (signNameToIndex.has(searchLower)) {
+      console.log(`Direct match: ${searchLower}`);
+      return signNameToIndex.get(searchLower);
+    }
+
+    const firstWord = glossClean.split(' ')[0].toLowerCase();
+    if (firstWord.length > 2 && signNameToIndex.has(firstWord)) {
+      console.log(`First word match: ${firstWord}`);
+      return signNameToIndex.get(firstWord);
+    }
+
+    for (const [signName, idx] of signNameToIndex) {
+      const signWords = signName.split(' ');
+      if (signWords.includes(searchLower) || signWords.includes(firstWord)) {
+        console.log(`Word in sign match: ${signName}`);
+        return idx;
+      }
+    }
+
+    console.log(`No match found for: ${token}`);
+    return -1;
+  }
+
+  function playNextGloss() {
+    if (!isTranslating) return;
+
+    nextAnimationScheduled = false;
+
+    if (glossIndex >= glossTokens.length) {
+      isTranslating = false;
+      isPlaying = false;
+      currentAction = null;
+      hideSignDisplay();
+      clearGlossQueue();
+
+      // Process next sentence in queue (streaming mode)
+      if (sentenceQueue.length > 0) {
+        processNextSentence();
+      } else {
+        updateStatus(false, isRecording ? 'Recording...' : 'Ready');
+        textInput.disabled = false;
+        sendButton.disabled = false;
+        translateBtn.disabled = pendingText.trim().length === 0;
+      }
+      return;
+    }
+
+    const token = glossTokens[glossIndex];
+    const animIndex = findAnimationIndex(token);
+
+    updateGlossQueue(glossTokens, glossIndex);
+
+    if (animIndex >= 0) {
+      const nextAction = actions[animIndex];
+      const clip = clips[animIndex];
+      const customDuration = getAnimationDuration(clip.name);
+
+      // Stop previous action
+      if (currentAction && currentAction !== nextAction) {
+        currentAction.fadeOut(FADE_DURATION);
+      }
+
+      // Play new action
+      nextAction.reset();
+      nextAction.setEffectiveWeight(1);
+      nextAction.enabled = true;
+      nextAction.fadeIn(FADE_DURATION);
+      nextAction.play();
+      currentAction = nextAction;
+      isPlaying = true;
+
+      updateSignDisplay(clip.name, glossIndex + 1, glossTokens.length);
+      updateStatus(true, `Playing: ${getSignName(clip.name)}`);
+
+      glossIndex++;
+
+      // Schedule next animation at the exact end frame time
+      const waitTime = (customDuration - FADE_DURATION) * 1000;
+      console.log(`Animation "${getSignName(clip.name)}" playing for ${customDuration.toFixed(2)}s, next in ${waitTime.toFixed(0)}ms`);
+
+      setTimeout(() => {
+        if (isTranslating) {
+          playNextGloss();
+        }
+      }, Math.max(waitTime, 100));
+
+    } else {
+      signLabel.textContent = `${token} (no sign)`;
+      signLabel.classList.add("visible");
+      signCounter.textContent = `${glossIndex + 1} of ${glossTokens.length}`;
+      signCounter.classList.add("visible");
+
+      glossIndex++;
+
+      setTimeout(() => {
+        if (isTranslating) {
+          playNextGloss();
+        }
+      }, 500);
+    }
+  }
+
+  // Keep checkAnimationProgress as backup but it's not primary anymore
+  function checkAnimationProgress() {
+    // Timer-based transitions are now primary, this is just a safety fallback
+  }
+
+  async function translateToGloss(sentence) {
+    try {
+      updateStatus(true, 'Translating...');
+
+      const proxyUrl = CORS_PROXY + encodeURIComponent(API_ENDPOINT);
+      const response = await fetch(proxyUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sentence })
+      });
+
+      if (!response.ok) throw new Error('API failed');
+
+      const data = await response.json();
+      if (!data.success) throw new Error(data.error_message || 'Translation failed');
+
+      return data.gloss_tokens;
+    } catch (error) {
+      console.error('Translation error:', error);
+      updateStatus(false, 'Translation failed');
+      showToast('Failed to translate');
+      return null;
+    }
+  }
+
+  // Streaming translate - for auto-translation from audio
+  async function handleStreamingTranslate(text) {
+    if (!text) {
+      processNextSentence();
+      return;
+    }
+
+    // Wait if currently translating
+    if (isTranslating) {
+      // Re-queue and try again later
+      sentenceQueue.unshift(text);
+      return;
+    }
+
+    updateStatus(true, 'Translating...');
+
+    const tokens = await translateToGloss(text);
+    if (tokens && tokens.length > 0) {
+      glossTokens = tokens.filter(t => t !== '-');
+      glossIndex = 0;
+
+      if (glossTokens.length > 0) {
+        actions.forEach(a => {
+          a.stop();
+          a.setEffectiveWeight(0);
+          a.enabled = false;
+        });
+
+        currentAction = null;
+        nextAnimationScheduled = false;
+        isTranslating = true;
+
+        updateStatus(true, `Playing ${glossTokens.length} signs...`);
+        playNextGloss();
+      } else {
+        // No valid signs, process next sentence
+        processNextSentence();
+      }
+    } else {
+      // Translation failed, process next sentence
+      processNextSentence();
+    }
+  }
+
+  async function handleTranslate(text) {
+    if (!text || isTranslating) return;
+
+    textInput.disabled = true;
+    sendButton.disabled = true;
+    translateBtn.disabled = true;
+
+    const tokens = await translateToGloss(text);
+    if (tokens && tokens.length > 0) {
+      glossTokens = tokens.filter(t => t !== '-');
+      glossIndex = 0;
+
+      if (glossTokens.length > 0) {
+        actions.forEach(a => {
+          a.stop();
+          a.setEffectiveWeight(0);
+          a.enabled = false;
+        });
+
+        currentAction = null;
+        nextAnimationScheduled = false;
+        isTranslating = true;
+
+        updateStatus(true, `Playing ${glossTokens.length} signs...`);
+        playNextGloss();
+      } else {
+        textInput.disabled = false;
+        sendButton.disabled = false;
+        translateBtn.disabled = false;
+        updateStatus(false, 'Ready');
+      }
+    } else {
+      textInput.disabled = false;
+      sendButton.disabled = false;
+      translateBtn.disabled = false;
+    }
+  }
+
+  async function handleSend() {
+    const text = textInput.value.trim();
+    if (!text) return;
+    textInput.value = '';
+    await handleTranslate(text);
+  }
+
+  // Input events
+  sendButton.addEventListener('click', handleSend);
+
+  textInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  });
+
+  // Direct test handler - bypasses gloss API
+  const directTestInput = document.getElementById('directTestInput');
+  const directTestBtn = document.getElementById('directTestBtn');
+
+  directTestBtn.addEventListener('click', () => {
+    const input = directTestInput.value.trim();
+    if (!input) return;
+
+    // Split by comma and create fake gloss tokens
+    const tokens = input.split(',').map(t => t.trim()).filter(t => t);
+    console.log('Direct test tokens:', tokens);
+
+    // Log what we're looking for
+    tokens.forEach(token => {
+      const upper = token.toUpperCase();
+      const mapped = GLOSS_TO_SIGN[upper];
+      console.log(`Token "${token}" -> GLOSS_TO_SIGN["${upper}"] = "${mapped}"`);
+      if (mapped) {
+        const lower = mapped.toLowerCase();
+        const idx = signNameToIndex.get(lower);
+        console.log(`  -> signNameToIndex.get("${lower}") = ${idx}`);
+      }
+
+      // Also try direct lookup
+      const directIdx = signNameToIndex.get(token.toLowerCase());
+      console.log(`  -> Direct lookup signNameToIndex.get("${token.toLowerCase()}") = ${directIdx}`);
+    });
+
+    // Play them directly
+    if (tokens.length > 0 && !isTranslating) {
+      glossTokens = tokens;
+      glossIndex = 0;
+
+      actions.forEach(a => {
+        a.stop();
+        a.setEffectiveWeight(0);
+        a.enabled = false;
+      });
+
+      currentAction = null;
+      nextAnimationScheduled = false;
+      isTranslating = true;
+
+      updateStatus(true, `Testing ${glossTokens.length} tokens...`);
+      playNextGloss();
+    }
+  });
+
+  directTestInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      directTestBtn.click();
+    }
+  });
+
+  // Render loop
+  const clock = new THREE.Clock();
+
+  function animate() {
+    requestAnimationFrame(animate);
+
+    const delta = clock.getDelta();
+
+    if (mixer) {
+      mixer.update(delta);
+      checkAnimationProgress();
+    }
+
+    controls.update();
+    renderer.render(scene, camera);
+  }
+
+  animate();
+
+  // Resize
+  window.addEventListener("resize", () => {
+    camera.aspect = avatarContainer.clientWidth / avatarContainer.clientHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(avatarContainer.clientWidth, avatarContainer.clientHeight);
+  });
+</script>
+
+</body>
+</html>
