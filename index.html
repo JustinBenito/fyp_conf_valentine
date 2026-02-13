@@ -515,7 +515,9 @@
     <div class="logo-text">ISL Translator</div>
   </div>
   <div style="display: flex; align-items: center; gap: 12px;">
-    <button id="debugBtn" style="padding: 6px 12px; background: #18181b; color: white; border: none; border-radius: 8px; font-size: 12px; cursor: pointer; display: none;">Debug: Play All</button>
+    <span id="modeLabel" style="font-size: 12px; color: #71717a; display: none;">Mode: New</span>
+    <button id="switchBtn" style="padding: 6px 12px; background: #18181b; color: white; border: none; border-radius: 8px; font-size: 12px; cursor: pointer; display: none;">Switch to Legacy</button>
+    <button id="debugBtn" style="padding: 6px 12px; background: #52525b; color: white; border: none; border-radius: 8px; font-size: 11px; cursor: pointer; display: none;">Test All</button>
     <div class="header-status">
       <div class="status-dot loading" id="statusDot"></div>
       <span id="statusText">Loading...</span>
@@ -638,14 +640,29 @@
   const TRANSCRIBE_ENDPOINT = '/api/transcribe';
 
   // FBX files to load
-  const FBX_FILES = [
-    '/models/plswork_fyp.fbx',
+  // Mode: "new" uses plswork_fyp.fbx (model + animations)
+  // Mode: "legacy" uses 230signs.fbx as model, animations from all legacy files
+  const NEW_MODEL_FILE = '/models/plswork_fyp.fbx';
+  const LEGACY_MODEL_FILE = '/models/230signs.fbx'; // This has the skeleton for legacy animations
+  const LEGACY_ANIMATION_FILES = [
+    '/models/230signs.fbx',
     '/models/e2g.fbx',
     '/models/h2k.fbx',
     '/models/l2n.fbx',
     '/models/o2r.fbx',
     '/models/common.fbx',
   ];
+
+  // Mode tracking
+  let currentMode = 'new'; // 'new' or 'legacy'
+  let newModel = null;     // The plswork_fyp 3D model
+  let legacyModel = null;  // The 230signs 3D model
+  let newMixer = null;     // Mixer for new model
+  let legacyMixer = null;  // Mixer for legacy model
+  let newModeClips = [];   // Clips from plswork_fyp.fbx
+  let legacyModeClips = []; // Clips from legacy files
+  let newModeActions = [];
+  let legacyModeActions = [];
 
   // Audio Recording State - Double buffer for seamless recording
   let isRecording = false;
@@ -1014,7 +1031,7 @@
   scene.add(dirLight2);
 
   // Animation variables
-  let mixer;
+  let mixer; // Current active mixer (switches between newMixer and legacyMixer)
   let actions = [];
   let clips = [];
   let currentIndex = 0;
@@ -1030,57 +1047,26 @@
   let isTranslating = false;
 
   const loader = new FBXLoader();
-  let loadedFilesCount = 0;
-  let allLoadedClips = [];
 
-  // Load all FBX files
-  async function loadAllFBX() {
-    let mainFbx = null;
-
-    for (let i = 0; i < FBX_FILES.length; i++) {
-      const file = FBX_FILES[i];
-      loadingText.textContent = `Loading model ${i + 1}/${FBX_FILES.length}...`;
-
-      try {
-        const fbx = await new Promise((resolve, reject) => {
-          loader.load(
-            file,
-            (fbx) => resolve(fbx),
-            (xhr) => {
-              const percent = Math.round((xhr.loaded / xhr.total) * 100);
-              loadingText.textContent = `Loading model ${i + 1}/${FBX_FILES.length}: ${percent}%`;
-            },
-            (error) => reject(error)
-          );
-        });
-
-        console.log(`Loaded: ${file}, animations: ${fbx.animations?.length || 0}`);
-
-        if (fbx.animations) {
-          allLoadedClips.push(...fbx.animations);
-        }
-
-        if (i === 0) {
-          mainFbx = fbx;
-        }
-
-        loadedFilesCount++;
-      } catch (error) {
-        console.error(`Error loading ${file}:`, error);
-      }
-    }
-
-    return mainFbx;
+  // Helper to load a single FBX file
+  async function loadFBX(file, progressPrefix) {
+    return new Promise((resolve, reject) => {
+      loader.load(
+        file,
+        (fbx) => resolve(fbx),
+        (xhr) => {
+          if (xhr.total > 0) {
+            const percent = Math.round((xhr.loaded / xhr.total) * 100);
+            loadingText.textContent = `${progressPrefix}: ${percent}%`;
+          }
+        },
+        (error) => reject(error)
+      );
+    });
   }
 
-  // Initialize
-  loadAllFBX().then((fbx) => {
-    if (!fbx) {
-      loadingText.textContent = 'Failed to load models';
-      return;
-    }
-
-    // Fix materials - white/gray for monochrome look
+  // Setup material for a model
+  function setupModelMaterial(fbx) {
     fbx.traverse((child) => {
       if (child.isMesh) {
         child.visible = true;
@@ -1102,11 +1088,10 @@
         child.material.needsUpdate = true;
       }
     });
+  }
 
-    fbx.visible = true;
-    scene.add(fbx);
-
-    // Scale and position for head-to-hips view
+  // Scale and position a model for head-to-hips view
+  function setupModelTransform(fbx) {
     fbx.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(fbx);
     const center = box.getCenter(new THREE.Vector3());
@@ -1118,6 +1103,79 @@
     fbx.position.x = -center.x * scaleFactor;
     fbx.position.y = -center.y * scaleFactor;
     fbx.position.z = -center.z * scaleFactor;
+  }
+
+  // Load all models and animations
+  async function loadAllModels() {
+    const totalFiles = 1 + LEGACY_ANIMATION_FILES.length; // new model + legacy files
+    let currentFile = 0;
+
+    // 1. Load NEW mode model (plswork_fyp.fbx)
+    loadingText.textContent = `Loading New mode model (1/${totalFiles})...`;
+    try {
+      newModel = await loadFBX(NEW_MODEL_FILE, `Loading New model`);
+      console.log(`Loaded NEW model: ${NEW_MODEL_FILE}, animations: ${newModel.animations?.length || 0}`);
+
+      if (newModel.animations) {
+        newModeClips = newModel.animations.filter(clip => clip.duration > 0);
+        console.log(`  -> ${newModeClips.length} clips for NEW mode`);
+      }
+      currentFile++;
+    } catch (error) {
+      console.error(`Error loading NEW model:`, error);
+      return false;
+    }
+
+    // 2. Load LEGACY mode model and animations
+    for (let i = 0; i < LEGACY_ANIMATION_FILES.length; i++) {
+      const file = LEGACY_ANIMATION_FILES[i];
+      loadingText.textContent = `Loading Legacy files (${currentFile + 1}/${totalFiles})...`;
+
+      try {
+        const fbx = await loadFBX(file, `Loading ${file.split('/').pop()}`);
+        console.log(`Loaded: ${file}, animations: ${fbx.animations?.length || 0}`);
+
+        // The first legacy file (230signs.fbx) is used as the model
+        if (file === LEGACY_MODEL_FILE) {
+          legacyModel = fbx;
+          console.log(`  -> Using as LEGACY model`);
+        }
+
+        // Collect animations from all legacy files
+        if (fbx.animations) {
+          const validClips = fbx.animations.filter(clip => clip.duration > 0);
+          legacyModeClips.push(...validClips);
+          console.log(`  -> Added ${validClips.length} clips to LEGACY mode`);
+        }
+
+        currentFile++;
+      } catch (error) {
+        console.error(`Error loading ${file}:`, error);
+      }
+    }
+
+    console.log(`Total clips - New: ${newModeClips.length}, Legacy: ${legacyModeClips.length}`);
+    return true;
+  }
+
+  // Initialize
+  loadAllModels().then((success) => {
+    if (!success || !newModel || !legacyModel) {
+      loadingText.textContent = 'Failed to load models';
+      return;
+    }
+
+    // Setup NEW model
+    setupModelMaterial(newModel);
+    setupModelTransform(newModel);
+    newModel.visible = true; // Start with new model visible
+    scene.add(newModel);
+
+    // Setup LEGACY model
+    setupModelMaterial(legacyModel);
+    setupModelTransform(legacyModel);
+    legacyModel.visible = false; // Hide legacy model initially
+    scene.add(legacyModel);
 
     // Camera positioned for head-to-hips focus
     camera.position.set(0, 1.2, 2.5);
@@ -1125,26 +1183,43 @@
     controls.target.set(0, 1.1, 0);
     controls.update();
 
-    // Setup mixer
-    mixer = new THREE.AnimationMixer(fbx);
-    clips = allLoadedClips.filter(clip => clip.duration > 0);
-    console.log(`Total animations loaded: ${clips.length}`);
-    console.log('All animations:');
-    clips.forEach((clip, i) => {
-      console.log(`${i + 1}. ${getSignName(clip.name)}`);
-    });
+    // Create separate mixers for each model
+    newMixer = new THREE.AnimationMixer(newModel);
+    legacyMixer = new THREE.AnimationMixer(legacyModel);
 
-    buildSignIndex();
+    console.log(`NEW mode animations: ${newModeClips.length}`);
+    newModeClips.forEach((clip, i) => console.log(`  ${i + 1}. ${getSignName(clip.name)}`));
 
-    actions = clips.map(clip => {
-      const action = mixer.clipAction(clip);
+    console.log(`LEGACY mode animations: ${legacyModeClips.length}`);
+    legacyModeClips.forEach((clip, i) => console.log(`  ${i + 1}. ${getSignName(clip.name)}`));
+
+    // Create actions for NEW mode clips (using newMixer)
+    newModeActions = newModeClips.map(clip => {
+      const action = newMixer.clipAction(clip);
       action.loop = THREE.LoopOnce;
       action.clampWhenFinished = false;
       action.setEffectiveWeight(0);
       return action;
     });
 
-    // Set initial pose
+    // Create actions for LEGACY mode clips (using legacyMixer)
+    legacyModeActions = legacyModeClips.map(clip => {
+      const action = legacyMixer.clipAction(clip);
+      action.loop = THREE.LoopOnce;
+      action.clampWhenFinished = false;
+      action.setEffectiveWeight(0);
+      return action;
+    });
+
+    // Start with NEW mode
+    currentMode = 'new';
+    clips = newModeClips;
+    actions = newModeActions;
+    mixer = newMixer;
+
+    buildSignIndex();
+
+    // Set initial pose for new model
     if (actions.length > 0) {
       const firstAction = actions[0];
       firstAction.reset();
@@ -1156,22 +1231,113 @@
 
     // Hide loading, enable input
     loadingOverlay.classList.add('hidden');
-    updateStatus(false, `Ready - ${clips.length} signs`);
+    updateStatus(false, `Ready - ${clips.length} signs (New mode)`);
     textInput.disabled = false;
     sendButton.disabled = false;
-    showToast(`Loaded ${clips.length} sign animations`);
+    showToast(`Loaded ${newModeClips.length} new + ${legacyModeClips.length} legacy animations`);
 
-    // Show debug button
+    // Show mode label and switch button
+    const modeLabel = document.getElementById('modeLabel');
+    const switchBtn = document.getElementById('switchBtn');
+    modeLabel.style.display = 'block';
+    modeLabel.textContent = 'Mode: New';
+    switchBtn.style.display = 'block';
+    switchBtn.textContent = 'Switch to Legacy';
+    switchBtn.addEventListener('click', switchMode);
+
+    // Show debug button (but keep it secondary)
     const debugBtn = document.getElementById('debugBtn');
     debugBtn.style.display = 'block';
     debugBtn.addEventListener('click', startDebugPlayback);
 
-    // Also log the sign index for debugging
-    console.log('Sign name index:');
+    // Log the sign index for debugging
+    console.log('Sign name index (New mode):');
     signNameToIndex.forEach((idx, name) => {
       console.log(`  "${name}" -> ${idx}`);
     });
   });
+
+  // Switch between New and Legacy modes
+  function switchMode() {
+    // Stop any current animation
+    if (isTranslating) {
+      isTranslating = false;
+      hideSignDisplay();
+      clearGlossQueue();
+    }
+    if (debugPlaying) {
+      debugPlaying = false;
+      hideSignDisplay();
+    }
+
+    // Stop all current actions
+    actions.forEach(a => {
+      a.stop();
+      a.setEffectiveWeight(0);
+      a.enabled = false;
+    });
+    currentAction = null;
+
+    const modeLabel = document.getElementById('modeLabel');
+    const switchBtn = document.getElementById('switchBtn');
+
+    if (currentMode === 'new') {
+      // Switch to Legacy
+      currentMode = 'legacy';
+      clips = legacyModeClips;
+      actions = legacyModeActions;
+      mixer = legacyMixer;
+
+      // Show legacy model, hide new model
+      newModel.visible = false;
+      legacyModel.visible = true;
+
+      modeLabel.textContent = 'Mode: Legacy';
+      switchBtn.textContent = 'Switch to New';
+      console.log('Switched to LEGACY mode');
+    } else {
+      // Switch to New
+      currentMode = 'new';
+      clips = newModeClips;
+      actions = newModeActions;
+      mixer = newMixer;
+
+      // Show new model, hide legacy model
+      newModel.visible = true;
+      legacyModel.visible = false;
+
+      modeLabel.textContent = 'Mode: New';
+      switchBtn.textContent = 'Switch to Legacy';
+      console.log('Switched to NEW mode');
+    }
+
+    // Rebuild sign index for current mode
+    buildSignIndex();
+
+    // Reset debug state
+    debugIndex = 0;
+    debugCurrentAction = null;
+    document.getElementById('debugBtn').textContent = 'Test All';
+
+    // Set initial pose for the new active model
+    if (actions.length > 0) {
+      const firstAction = actions[0];
+      firstAction.reset();
+      firstAction.play();
+      firstAction.time = 0.5;
+      firstAction.paused = true;
+      mixer.update(0);
+    }
+
+    updateStatus(false, `Ready - ${clips.length} signs (${currentMode === 'new' ? 'New' : 'Legacy'} mode)`);
+    showToast(`Switched to ${currentMode === 'new' ? 'New' : 'Legacy'} mode`);
+
+    // Log the sign index for debugging
+    console.log(`Sign name index (${currentMode} mode):`);
+    signNameToIndex.forEach((idx, name) => {
+      console.log(`  "${name}" -> ${idx}`);
+    });
+  }
 
   // Crossfade function
   function crossfade(fromAction, toAction, duration) {
@@ -1187,7 +1353,8 @@
     }
   }
 
-  // Frame-based animation end points (animations are 250 frames but actual signs end earlier)
+  // Frame-based animation end points (for NEW mode - plswork_fyp.fbx)
+  // Animations are 250 frames but actual signs end earlier
   const FPS = 30; // Assuming 30 fps
   const ANIMATION_END_FRAMES = {
     'eat': 106,
@@ -1202,14 +1369,24 @@
   };
 
   // Get actual duration for an animation (in seconds)
-  function getAnimationDuration(clipName) {
-    const signName = getSignName(clipName).toLowerCase();
-    const endFrame = ANIMATION_END_FRAMES[signName];
-    if (endFrame) {
-      return endFrame / FPS;
+  // New mode: use ANIMATION_END_FRAMES mapping
+  // Legacy mode: use clip duration minus 2 frames
+  function getAnimationDuration(clipName, clip) {
+    if (currentMode === 'new') {
+      // New mode: use custom frame end points
+      const signName = getSignName(clipName).toLowerCase();
+      const endFrame = ANIMATION_END_FRAMES[signName];
+      if (endFrame) {
+        return endFrame / FPS;
+      }
+      // Default for new mode: cap at 250 frames
+      return Math.min(3, 250 / FPS);
+    } else {
+      // Legacy mode: use clip duration minus 2 frames for smooth transition
+      const clipDuration = clip ? clip.duration : 3;
+      const framesToRemove = 2 / FPS; // 2 frames in seconds
+      return Math.max(0.5, clipDuration - framesToRemove);
     }
-    // Default: use full clip duration but cap at 3 seconds
-    return Math.min(3, 250 / FPS);
   }
 
   // Debug playback - play all animations one by one
@@ -1219,14 +1396,14 @@
   function startDebugPlayback() {
     if (debugPlaying) {
       debugPlaying = false;
-      document.getElementById('debugBtn').textContent = 'Debug: Play All';
+      document.getElementById('debugBtn').textContent = 'Test All';
       hideSignDisplay();
       return;
     }
 
     debugPlaying = true;
     debugIndex = 0;
-    document.getElementById('debugBtn').textContent = 'Stop Debug';
+    document.getElementById('debugBtn').textContent = 'Stop';
     playNextDebugAnimation();
   }
 
@@ -1235,19 +1412,20 @@
   function playNextDebugAnimation() {
     if (!debugPlaying || debugIndex >= actions.length) {
       debugPlaying = false;
-      document.getElementById('debugBtn').textContent = 'Debug: Play All';
+      document.getElementById('debugBtn').textContent = 'Test All';
       if (debugCurrentAction) {
         debugCurrentAction.fadeOut(FADE_DURATION);
       }
       hideSignDisplay();
-      showToast('Debug playback complete');
+      showToast(`${currentMode === 'new' ? 'New' : 'Legacy'} mode playback complete`);
+      updateStatus(false, `Ready - ${clips.length} signs (${currentMode === 'new' ? 'New' : 'Legacy'} mode)`);
       return;
     }
 
     const action = actions[debugIndex];
     const clip = clips[debugIndex];
     const signName = getSignName(clip.name);
-    const customDuration = getAnimationDuration(clip.name);
+    const customDuration = getAnimationDuration(clip.name, clip);
 
     console.log(`Playing debug ${debugIndex + 1}/${actions.length}: "${signName}" for ${customDuration.toFixed(2)}s`);
 
@@ -1418,7 +1596,7 @@
     if (animIndex >= 0) {
       const nextAction = actions[animIndex];
       const clip = clips[animIndex];
-      const customDuration = getAnimationDuration(clip.name);
+      const customDuration = getAnimationDuration(clip.name, clip);
 
       // Stop previous action
       if (currentAction && currentAction !== nextAction) {
