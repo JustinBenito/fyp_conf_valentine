@@ -5,10 +5,23 @@ const path = require('path');
 const OpenAI = require('openai');
 const fs = require('fs');
 const os = require('os');
+const compression = require('compression');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Enable gzip compression for all responses
+app.use(compression({
+  filter: (req, res) => {
+    // Compress everything except already compressed files
+    if (req.path.match(/\.(glb|png|jpg|jpeg|gif|webp)$/i)) {
+      return false; // These are already compressed
+    }
+    return compression.filter(req, res);
+  },
+  level: 6 // Balanced compression level
+}));
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -19,7 +32,21 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname)));
+
+// Serve static files with caching for 3D models
+app.use(express.static(path.join(__dirname), {
+  maxAge: '1d', // Cache static files for 1 day
+  setHeaders: (res, filePath) => {
+    // Long cache for 3D model files (FBX, GLB, GLTF)
+    if (filePath.match(/\.(fbx|glb|gltf)$/i)) {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable'); // 1 year
+    }
+    // Enable compression hint
+    if (filePath.match(/\.(fbx|glb|gltf|json)$/i)) {
+      res.setHeader('Content-Encoding', 'identity');
+    }
+  }
+}));
 
 // ISL Gloss conversion proxy (avoids CORS issues)
 app.post('/api/convert', async (req, res) => {
@@ -74,5 +101,12 @@ app.post('/api/transcribe', upload.single('audio'), async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
+  console.log(`\n========================================`);
+  console.log(`  ISL Translator Server Started!`);
+  console.log(`========================================`);
+  console.log(`  Open: http://localhost:${PORT}`);
+  console.log(`  `);
+  console.log(`  DO NOT use VS Code Live Server!`);
+  console.log(`  The API only works on this port.`);
+  console.log(`========================================\n`);
 });

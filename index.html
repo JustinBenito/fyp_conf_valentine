@@ -492,6 +492,196 @@
       width: 18px;
       height: 18px;
     }
+
+    /* Mobile Responsive Styles */
+    @media (max-width: 768px) {
+      .header {
+        height: 48px;
+        padding: 0 12px;
+      }
+
+      .logo-text {
+        font-size: 14px;
+      }
+
+      .logo-icon {
+        width: 28px;
+        height: 28px;
+      }
+
+      .logo-icon svg {
+        width: 16px;
+        height: 16px;
+      }
+
+      .header-status {
+        padding: 4px 8px;
+        font-size: 11px;
+      }
+
+      .main-container {
+        flex-direction: column;
+        height: calc(100vh - 48px);
+        margin-top: 48px;
+      }
+
+      .left-panel {
+        width: 100%;
+        min-width: 100%;
+        height: auto;
+        max-height: 35vh;
+        min-height: 180px;
+        padding: 12px;
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+        order: 2;
+      }
+
+      .right-panel {
+        flex: 1;
+        min-height: 50vh;
+        order: 1;
+      }
+
+      .panel-header {
+        margin-bottom: 8px;
+      }
+
+      .panel-title {
+        font-size: 11px;
+      }
+
+      .transcription-container {
+        border-radius: var(--radius-lg);
+      }
+
+      .transcription-content {
+        padding: 12px;
+        font-size: 14px;
+        max-height: 80px;
+        overflow-y: auto;
+      }
+
+      .transcription-footer {
+        padding: 8px 12px;
+      }
+
+      .translate-btn {
+        padding: 6px 12px;
+        font-size: 12px;
+      }
+
+      .manual-input-section {
+        padding: 10px 12px;
+      }
+
+      .input-label {
+        font-size: 10px;
+        margin-bottom: 6px;
+      }
+
+      .text-input {
+        padding: 8px 10px;
+        font-size: 13px;
+      }
+
+      .send-button {
+        width: 36px;
+        height: 36px;
+      }
+
+      .gloss-queue {
+        top: 12px;
+        max-width: 90%;
+        gap: 4px;
+      }
+
+      .gloss-token {
+        padding: 3px 8px;
+        font-size: 10px;
+      }
+
+      .sign-info {
+        bottom: 12px;
+      }
+
+      .sign-label {
+        padding: 8px 16px;
+        font-size: 12px;
+      }
+
+      .sign-counter {
+        font-size: 10px;
+      }
+
+      /* Hide direct test input on mobile for cleaner UI */
+      .manual-input-section[style*="dashed"] {
+        display: none;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .header {
+        height: 44px;
+        padding: 0 8px;
+      }
+
+      .logo-text {
+        font-size: 13px;
+      }
+
+      .left-panel {
+        padding: 8px;
+        max-height: 30vh;
+        min-height: 160px;
+      }
+
+      .right-panel {
+        min-height: 55vh;
+      }
+
+      .transcription-content {
+        padding: 10px;
+        font-size: 13px;
+        max-height: 60px;
+      }
+
+      .mic-button {
+        width: 32px;
+        height: 32px;
+      }
+
+      .mic-button svg {
+        width: 16px;
+        height: 16px;
+      }
+    }
+
+    /* Landscape mobile */
+    @media (max-width: 768px) and (orientation: landscape) {
+      .main-container {
+        flex-direction: row;
+      }
+
+      .left-panel {
+        width: 280px;
+        min-width: 280px;
+        max-height: none;
+        height: 100%;
+        border-right: 1px solid var(--border-color);
+        border-bottom: none;
+        order: 1;
+      }
+
+      .right-panel {
+        order: 2;
+        min-height: auto;
+      }
+
+      .transcription-content {
+        max-height: none;
+      }
+    }
   </style>
 </head>
 <body>
@@ -515,8 +705,6 @@
     <div class="logo-text">ISL Translator</div>
   </div>
   <div style="display: flex; align-items: center; gap: 12px;">
-    <span id="modeLabel" style="font-size: 12px; color: #71717a; display: none;">Mode: New</span>
-    <button id="switchBtn" style="padding: 6px 12px; background: #18181b; color: white; border: none; border-radius: 8px; font-size: 12px; cursor: pointer; display: none;">Switch to Legacy</button>
     <button id="debugBtn" style="padding: 6px 12px; background: #52525b; color: white; border: none; border-radius: 8px; font-size: 11px; cursor: pointer; display: none;">Test All</button>
     <div class="header-status">
       <div class="status-dot loading" id="statusDot"></div>
@@ -612,7 +800,8 @@
 
 <script type="module">
   import * as THREE from "three";
-  import { FBXLoader } from "three/addons/loaders/FBXLoader.js";
+  import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+  import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
   import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
   // DOM Elements
@@ -638,30 +827,14 @@
   const GLOSS_ENDPOINT = '/api/convert';  // Local proxy to avoid CORS
   const TRANSCRIBE_ENDPOINT = '/api/transcribe';
 
-  // FBX files to load
-  // Mode: "new" uses plswork_fyp.fbx (model + animations)
-  // Mode: "legacy" uses 230signs.fbx as model, animations from all legacy files
-  const NEW_MODEL_FILE = '/models/plswork_fyp.fbx';
-  const LEGACY_MODEL_FILE = '/models/230signs.fbx'; // This has the skeleton for legacy animations
-  const LEGACY_ANIMATION_FILES = [
-    '/models/230signs.fbx',
-    '/models/e2g.fbx',
-    '/models/h2k.fbx',
-    '/models/l2n.fbx',
-    '/models/o2r.fbx',
-    '/models/common.fbx',
-  ];
+  // GLB file - single model with all animations (compressed)
+  const MODEL_FILE = '/models/final-signs-all.glb';
 
-  // Mode tracking
-  let currentMode = 'new'; // 'new' or 'legacy'
-  let newModel = null;     // The plswork_fyp 3D model
-  let legacyModel = null;  // The 230signs 3D model
-  let newMixer = null;     // Mixer for new model
-  let legacyMixer = null;  // Mixer for legacy model
-  let newModeClips = [];   // Clips from plswork_fyp.fbx
-  let legacyModeClips = []; // Clips from legacy files
-  let newModeActions = [];
-  let legacyModeActions = [];
+  // Model tracking
+  let model = null;
+  let modelMixer = null;
+  let modelClips = [];
+  let modelActions = [];
 
   // Audio Recording State - Double buffer for seamless recording
   let isRecording = false;
@@ -696,17 +869,27 @@
   // Function to extract clean sign name from animation clip name
   function getSignName(clipName) {
     let name = clipName;
+
+    // Remove common prefixes
     name = name.replace("Armature|", "");
     name = name.replace("Skeleton|", "");
     name = name.replace("|Layer0", "");
+
+    // Remove skeleton.XXX prefix (e.g., "skeleton.005 election" -> "election")
+    name = name.replace(/^skeleton\.\d+\s+/i, "");
+
+    // Remove other common suffixes/patterns
     name = name.replace(" Retarget", "");
     name = name.replace("_Retarget", "");
     name = name.replace(".mp4", "");
     name = name.replace(/_Editted/gi, "");
     name = name.replace(/_Edited/gi, "");
+    name = name.replace(/\.001$/, ""); // Remove .001 suffix
+    name = name.replace(/\.002$/, ""); // Remove .002 suffix
     name = name.replace(/\|/g, " ");
     name = name.replace(/_/g, " ");
     name = name.replace(/\s+/g, " ").trim();
+
     return name;
   }
 
@@ -993,28 +1176,29 @@
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0xfafafa);
 
+  // Camera with wider FOV for bigger model display
   const camera = new THREE.PerspectiveCamera(
-    35,
+    50,
     avatarContainer.clientWidth / avatarContainer.clientHeight,
     0.1,
     100
   );
-  // Position camera to focus on head to hips
-  camera.position.set(0, 1.2, 2.5);
+  // Position camera for centered, full-body view
+  camera.position.set(0, 1.0, 1.8);
 
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(avatarContainer.clientWidth, avatarContainer.clientHeight);
-  renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Limit for mobile performance
   avatarContainer.appendChild(renderer.domElement);
 
   // Controls
   const controls = new OrbitControls(camera, renderer.domElement);
-  controls.target.set(0, 1.1, 0);
+  controls.target.set(0, 1.0, 0);
   controls.enableDamping = true;
   controls.dampingFactor = 0.05;
   controls.enablePan = false;
-  controls.minDistance = 1.5;
-  controls.maxDistance = 4;
+  controls.minDistance = 1.2;
+  controls.maxDistance = 3.5;
   controls.update();
 
   // Lights - Clean, flat lighting for monochrome look
@@ -1045,18 +1229,40 @@
   let glossIndex = 0;
   let isTranslating = false;
 
-  const loader = new FBXLoader();
+  // Setup GLTF loader with Draco decoder for compressed models
+  const dracoLoader = new DRACOLoader();
+  dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
 
-  // Helper to load a single FBX file
-  async function loadFBX(file, progressPrefix) {
+  const loader = new GLTFLoader();
+  loader.setDRACOLoader(dracoLoader);
+
+  // Format bytes to human readable
+  function formatBytes(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  // Helper to load GLB/GLTF file with detailed progress
+  async function loadGLB(file, progressPrefix) {
     return new Promise((resolve, reject) => {
       loader.load(
         file,
-        (fbx) => resolve(fbx),
+        (gltf) => {
+          // GLTF structure: scene is in gltf.scene, animations in gltf.animations
+          const result = gltf.scene;
+          result.animations = gltf.animations;
+          resolve(result);
+        },
         (xhr) => {
           if (xhr.total > 0) {
             const percent = Math.round((xhr.loaded / xhr.total) * 100);
-            loadingText.textContent = `${progressPrefix}: ${percent}%`;
+            const loaded = formatBytes(xhr.loaded);
+            const total = formatBytes(xhr.total);
+            loadingText.textContent = `${progressPrefix}: ${percent}% (${loaded} / ${total})`;
+          } else if (xhr.loaded > 0) {
+            const loaded = formatBytes(xhr.loaded);
+            loadingText.textContent = `${progressPrefix}: ${loaded} loaded...`;
           }
         },
         (error) => reject(error)
@@ -1089,136 +1295,92 @@
     });
   }
 
-  // Scale and position a model for head-to-hips view
+  // Scale and position model for centered, full-body view
   function setupModelTransform(fbx) {
     fbx.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(fbx);
     const center = box.getCenter(new THREE.Vector3());
     const size = box.getSize(new THREE.Vector3());
 
-    const scaleFactor = 2 / size.y;
+    // Scale to fill the view nicely (bigger model)
+    const scaleFactor = 2.2 / size.y;
     fbx.scale.setScalar(scaleFactor);
 
+    // Center the model horizontally and vertically
     fbx.position.x = -center.x * scaleFactor;
-    fbx.position.y = -center.y * scaleFactor;
+    fbx.position.y = -center.y * scaleFactor + 0.1; // Slight offset to center better
     fbx.position.z = -center.z * scaleFactor;
   }
 
-  // Load all models and animations
-  async function loadAllModels() {
-    const totalFiles = 1 + LEGACY_ANIMATION_FILES.length; // new model + legacy files
-    let currentFile = 0;
-
-    // 1. Load NEW mode model (plswork_fyp.fbx)
-    loadingText.textContent = `Loading New mode model (1/${totalFiles})...`;
+  // Load the model with all animations
+  async function loadModel() {
+    loadingText.textContent = `Loading ISL model...`;
     try {
-      newModel = await loadFBX(NEW_MODEL_FILE, `Loading New model`);
-      console.log(`Loaded NEW model: ${NEW_MODEL_FILE}, animations: ${newModel.animations?.length || 0}`);
+      model = await loadGLB(MODEL_FILE, `Loading model`);
+      console.log(`Loaded model: ${MODEL_FILE}, animations: ${model.animations?.length || 0}`);
 
-      if (newModel.animations) {
-        newModeClips = newModel.animations.filter(clip => clip.duration > 0);
-        console.log(`  -> ${newModeClips.length} clips for NEW mode`);
+      if (model.animations) {
+        modelClips = model.animations.filter(clip => clip.duration > 0);
+        console.log(`  -> ${modelClips.length} valid animation clips`);
+
+        // Log first few animation names for debugging
+        console.log('Sample animation names:');
+        modelClips.slice(0, 10).forEach((clip, i) => {
+          console.log(`  Raw: "${clip.name}" -> Clean: "${getSignName(clip.name)}"`);
+        });
       }
-      currentFile++;
+      return true;
     } catch (error) {
-      console.error(`Error loading NEW model:`, error);
+      console.error(`Error loading model:`, error);
       return false;
     }
-
-    // 2. Load LEGACY mode model and animations
-    for (let i = 0; i < LEGACY_ANIMATION_FILES.length; i++) {
-      const file = LEGACY_ANIMATION_FILES[i];
-      loadingText.textContent = `Loading Legacy files (${currentFile + 1}/${totalFiles})...`;
-
-      try {
-        const fbx = await loadFBX(file, `Loading ${file.split('/').pop()}`);
-        console.log(`Loaded: ${file}, animations: ${fbx.animations?.length || 0}`);
-
-        // The first legacy file (230signs.fbx) is used as the model
-        if (file === LEGACY_MODEL_FILE) {
-          legacyModel = fbx;
-          console.log(`  -> Using as LEGACY model`);
-        }
-
-        // Collect animations from all legacy files
-        if (fbx.animations) {
-          const validClips = fbx.animations.filter(clip => clip.duration > 0);
-          legacyModeClips.push(...validClips);
-          console.log(`  -> Added ${validClips.length} clips to LEGACY mode`);
-        }
-
-        currentFile++;
-      } catch (error) {
-        console.error(`Error loading ${file}:`, error);
-      }
-    }
-
-    console.log(`Total clips - New: ${newModeClips.length}, Legacy: ${legacyModeClips.length}`);
-    return true;
   }
 
   // Initialize
-  loadAllModels().then((success) => {
-    if (!success || !newModel || !legacyModel) {
-      loadingText.textContent = 'Failed to load models';
+  loadModel().then((success) => {
+    if (!success || !model) {
+      loadingText.textContent = 'Failed to load model';
       return;
     }
 
-    // Setup NEW model
-    setupModelMaterial(newModel);
-    setupModelTransform(newModel);
-    newModel.visible = true; // Start with new model visible
-    scene.add(newModel);
+    // Setup model
+    setupModelMaterial(model);
+    setupModelTransform(model);
+    model.visible = true;
+    scene.add(model);
 
-    // Setup LEGACY model
-    setupModelMaterial(legacyModel);
-    setupModelTransform(legacyModel);
-    legacyModel.visible = false; // Hide legacy model initially
-    scene.add(legacyModel);
-
-    // Camera positioned for head-to-hips focus
-    camera.position.set(0, 1.2, 2.5);
-    camera.lookAt(0, 1.1, 0);
-    controls.target.set(0, 1.1, 0);
+    // Camera positioned for full body centered view
+    camera.position.set(0, 1.0, 2.2);
+    camera.lookAt(0, 1.0, 0);
+    controls.target.set(0, 1.0, 0);
     controls.update();
 
-    // Create separate mixers for each model
-    newMixer = new THREE.AnimationMixer(newModel);
-    legacyMixer = new THREE.AnimationMixer(legacyModel);
+    // Create mixer for the model
+    modelMixer = new THREE.AnimationMixer(model);
+    mixer = modelMixer;
 
-    console.log(`NEW mode animations: ${newModeClips.length}`);
-    newModeClips.forEach((clip, i) => console.log(`  ${i + 1}. ${getSignName(clip.name)}`));
+    console.log(`Loaded ${modelClips.length} animations`);
+    modelClips.slice(0, 20).forEach((clip, i) => console.log(`  ${i + 1}. ${getSignName(clip.name)}`));
+    if (modelClips.length > 20) {
+      console.log(`  ... and ${modelClips.length - 20} more`);
+    }
 
-    console.log(`LEGACY mode animations: ${legacyModeClips.length}`);
-    legacyModeClips.forEach((clip, i) => console.log(`  ${i + 1}. ${getSignName(clip.name)}`));
-
-    // Create actions for NEW mode clips (using newMixer)
-    newModeActions = newModeClips.map(clip => {
-      const action = newMixer.clipAction(clip);
+    // Create actions for all clips
+    modelActions = modelClips.map(clip => {
+      const action = modelMixer.clipAction(clip);
       action.loop = THREE.LoopOnce;
       action.clampWhenFinished = false;
       action.setEffectiveWeight(0);
       return action;
     });
 
-    // Create actions for LEGACY mode clips (using legacyMixer)
-    legacyModeActions = legacyModeClips.map(clip => {
-      const action = legacyMixer.clipAction(clip);
-      action.loop = THREE.LoopOnce;
-      action.clampWhenFinished = false;
-      action.setEffectiveWeight(0);
-      return action;
-    });
-
-    // Start with NEW mode
-    currentMode = 'new';
-    clips = newModeClips;
-    actions = newModeActions;
-    mixer = newMixer;
+    // Set references
+    clips = modelClips;
+    actions = modelActions;
 
     buildSignIndex();
 
-    // Set initial pose for new model
+    // Set initial pose
     if (actions.length > 0) {
       const firstAction = actions[0];
       firstAction.reset();
@@ -1230,113 +1392,22 @@
 
     // Hide loading, enable input
     loadingOverlay.classList.add('hidden');
-    updateStatus(false, `Ready - ${clips.length} signs (New mode)`);
+    updateStatus(false, `Ready - ${clips.length} signs`);
     textInput.disabled = false;
     sendButton.disabled = false;
-    showToast(`Loaded ${newModeClips.length} new + ${legacyModeClips.length} legacy animations`);
+    showToast(`Loaded ${modelClips.length} ISL animations`);
 
-    // Show mode label and switch button
-    const modeLabel = document.getElementById('modeLabel');
-    const switchBtn = document.getElementById('switchBtn');
-    modeLabel.style.display = 'block';
-    modeLabel.textContent = 'Mode: New';
-    switchBtn.style.display = 'block';
-    switchBtn.textContent = 'Switch to Legacy';
-    switchBtn.addEventListener('click', switchMode);
-
-    // Show debug button (but keep it secondary)
+    // Show debug button
     const debugBtn = document.getElementById('debugBtn');
     debugBtn.style.display = 'block';
     debugBtn.addEventListener('click', startDebugPlayback);
 
     // Log the sign index for debugging
-    console.log('Sign name index (New mode):');
+    console.log('Sign name index:');
     signNameToIndex.forEach((idx, name) => {
       console.log(`  "${name}" -> ${idx}`);
     });
   });
-
-  // Switch between New and Legacy modes
-  function switchMode() {
-    // Stop any current animation
-    if (isTranslating) {
-      isTranslating = false;
-      hideSignDisplay();
-      clearGlossQueue();
-    }
-    if (debugPlaying) {
-      debugPlaying = false;
-      hideSignDisplay();
-    }
-
-    // Stop all current actions
-    actions.forEach(a => {
-      a.stop();
-      a.setEffectiveWeight(0);
-      a.enabled = false;
-    });
-    currentAction = null;
-
-    const modeLabel = document.getElementById('modeLabel');
-    const switchBtn = document.getElementById('switchBtn');
-
-    if (currentMode === 'new') {
-      // Switch to Legacy
-      currentMode = 'legacy';
-      clips = legacyModeClips;
-      actions = legacyModeActions;
-      mixer = legacyMixer;
-
-      // Show legacy model, hide new model
-      newModel.visible = false;
-      legacyModel.visible = true;
-
-      modeLabel.textContent = 'Mode: Legacy';
-      switchBtn.textContent = 'Switch to New';
-      console.log('Switched to LEGACY mode');
-    } else {
-      // Switch to New
-      currentMode = 'new';
-      clips = newModeClips;
-      actions = newModeActions;
-      mixer = newMixer;
-
-      // Show new model, hide legacy model
-      newModel.visible = true;
-      legacyModel.visible = false;
-
-      modeLabel.textContent = 'Mode: New';
-      switchBtn.textContent = 'Switch to Legacy';
-      console.log('Switched to NEW mode');
-    }
-
-    // Rebuild sign index for current mode
-    buildSignIndex();
-
-    // Reset debug state
-    debugIndex = 0;
-    debugCurrentAction = null;
-    document.getElementById('debugBtn').textContent = 'Test All';
-
-    // Set initial pose for the new active model
-    if (actions.length > 0) {
-      const firstAction = actions[0];
-      firstAction.reset();
-      firstAction.play();
-      firstAction.time = 0.5;
-      firstAction.paused = true;
-      mixer.update(0);
-    }
-
-    updateStatus(false, `Ready - ${clips.length} signs (${currentMode === 'new' ? 'New' : 'Legacy'} mode)`);
-    showToast(`Switched to ${currentMode === 'new' ? 'New' : 'Legacy'} mode`);
-
-    // Log the sign index for debugging
-    console.log(`Sign name index (${currentMode} mode):`);
-    signNameToIndex.forEach((idx, name) => {
-      console.log(`  "${name}" -> ${idx}`);
-    });
-  }
 
   // Crossfade function
   function crossfade(fromAction, toAction, duration) {
@@ -1368,24 +1439,16 @@
   };
 
   // Get actual duration for an animation (in seconds)
-  // New mode: use ANIMATION_END_FRAMES mapping
-  // Legacy mode: use clip duration minus 2 frames
   function getAnimationDuration(clipName, clip) {
-    if (currentMode === 'new') {
-      // New mode: use custom frame end points
-      const signName = getSignName(clipName).toLowerCase();
-      const endFrame = ANIMATION_END_FRAMES[signName];
-      if (endFrame) {
-        return endFrame / FPS;
-      }
-      // Default for new mode: cap at 250 frames
-      return Math.min(3, 250 / FPS);
-    } else {
-      // Legacy mode: use clip duration minus 2 frames for smooth transition
-      const clipDuration = clip ? clip.duration : 3;
-      const framesToRemove = 2 / FPS; // 2 frames in seconds
-      return Math.max(0.5, clipDuration - framesToRemove);
+    const signName = getSignName(clipName).toLowerCase();
+    const endFrame = ANIMATION_END_FRAMES[signName];
+    if (endFrame) {
+      return endFrame / FPS;
     }
+    // Use clip duration minus 2 frames for smooth transition
+    const clipDuration = clip ? clip.duration : 3;
+    const framesToRemove = 2 / FPS; // 2 frames in seconds
+    return Math.max(0.5, clipDuration - framesToRemove);
   }
 
   // Debug playback - play all animations one by one
@@ -1416,8 +1479,8 @@
         debugCurrentAction.fadeOut(FADE_DURATION);
       }
       hideSignDisplay();
-      showToast(`${currentMode === 'new' ? 'New' : 'Legacy'} mode playback complete`);
-      updateStatus(false, `Ready - ${clips.length} signs (${currentMode === 'new' ? 'New' : 'Legacy'} mode)`);
+      showToast(`Playback complete`);
+      updateStatus(false, `Ready - ${clips.length} signs`);
       return;
     }
 
@@ -1460,37 +1523,307 @@
   }
 
   // ISL Gloss to Sign Name mapping
-  // Available animations: Food, You, Where, Eat, I, want, Which, Happy, What
+  // Maps common gloss tokens to available animation names
   const GLOSS_TO_SIGN = {
-    // Direct mappings
-    'I': 'I',
-    'ME': 'I',
-    'IX-1': 'I',
-    'PRO-1': 'I',
-    'YOU': 'You',
-    'IX-2': 'You',
-    'YOUR': 'You',
+    // Pronouns
+    'I': 'i me',
+    'ME': 'i me',
+    'IX-1': 'i me',
+    'PRO-1': 'i me',
+    'MY': 'my',
+    'MINE': 'my',
+    'MYSELF': 'myself',
+    'YOU': 'your',
+    'IX-2': 'your',
+    'YOUR': 'your',
+    'YOURSELF': 'yourself',
+    'HE': 'he',
+    'HIM': 'he',
+    'HIS': 'his',
+    'HIMSELF': 'himself',
+    'SHE': 'she',
+    'HER': 'her',
+    'HERSELF': 'herself',
+    'IT': 'it',
+    'ITS': 'its',
+    'ITSELF': 'itself',
+    'WE': 'we',
+    'US': 'we',
+    'OUR': 'our',
+    'OURSELVES': 'ourselves',
+    'THEY': 'they',
+    'THEM': 'they',
+    'THEIR': 'theirs',
+    'THEIRS': 'theirs',
+    'THEMSELVES': 'themselves',
+    'THIS': 'this',
+    'THAT': 'that',
+    'WHO': 'who',
+    'WHAT': 'what',
+    'WHICH': 'which',
+    'WHERE': 'where',
+    'WHEN': 'when',
+    'WHY': 'why',
+    'HOW': 'how many',
+
+    // Common verbs
+    'EAT': 'eat',
+    'EATING': 'eat',
+    'DRINK': 'thirsty',
     'WANT': 'want',
     'NEED': 'want',
     'DESIRE': 'want',
-    'EAT': 'Eat',
-    'EATING': 'Eat',
-    'FOOD': 'Food',
-    'MEAL': 'Food',
-    'LUNCH': 'Food',
-    'DINNER': 'Food',
-    'BREAKFAST': 'Food',
-    'WHERE': 'Where',
-    'LOCATION': 'Where',
-    'PLACE': 'Where',
-    'WHAT': 'What',
-    'WHICH': 'Which',
-    'HAPPY': 'Happy',
-    'JOY': 'Happy',
-    'GLAD': 'Happy',
-    'PLEASED': 'Happy',
-    'LIKE': 'Happy',
-    'LOVE': 'Happy',
+    'LIKE': 'like',
+    'LOVE': 'love',
+    'HELP': 'help',
+    'GIVE': 'give',
+    'GET': 'get',
+    'TAKE': 'take',
+    'MAKE': 'make',
+    'GO': 'go',
+    'COME': 'come',
+    'SEE': 'see',
+    'LOOK': 'see',
+    'WATCH': 'see',
+    'HEAR': 'hearing',
+    'LISTEN': 'hearing',
+    'SPEAK': 'speak speech',
+    'TALK': 'speak speech',
+    'SAY': 'speak speech',
+    'READ': 'read',
+    'WRITE': 'sign',
+    'LEARN': 'learn',
+    'TEACH': 'teach',
+    'STUDY': 'learn',
+    'UNDERSTAND': 'understand comprehend',
+    'KNOW': 'i know',
+    'THINK': 'idea',
+    'BELIEVE': 'believe',
+    'REMEMBER': 'remember',
+    'FORGET': 'forget',
+    'TRY': 'try',
+    'WORK': 'job',
+    'PLAY': 'play',
+    'WALK': 'walk',
+    'RUN': 'walk',
+    'SIT': 'sit',
+    'STAND': 'stand',
+    'SLEEP': 'yawn',
+    'WAKE': 'wake',
+    'OPEN': 'open',
+    'CLOSE': 'lock',
+    'SEND': 'send',
+    'RECEIVE': 'receive',
+    'MEET': 'meet',
+    'VISIT': 'visit',
+    'TRAVEL': 'travel',
+    'LIVE': 'live',
+    'MOVE': 'move',
+    'CHANGE': 'change',
+    'GROW': 'grow',
+    'FALL': 'fall',
+    'SHOW': 'show',
+    'EXPLAIN': 'explain',
+    'SEARCH': 'search',
+    'FIND': 'search',
+
+    // Emotions & States
+    'HAPPY': 'happy',
+    'JOY': 'happy',
+    'GLAD': 'glad',
+    'PLEASED': 'happy',
+    'EXCITED': 'excited',
+    'SAD': 'sorry',
+    'SORRY': 'sorry',
+    'ANGRY': 'agitated',
+    'FRUSTRATED': 'frustrate',
+    'TIRED': 'yawn',
+    'HUNGRY': 'hungry',
+    'THIRSTY': 'thirsty',
+    'SICK': 'pain',
+    'HEALTHY': 'health',
+    'GOOD': 'good',
+    'BAD': 'bad',
+    'BETTER': 'better',
+    'BEST': 'best',
+    'HOPE': 'hope',
+    'ENJOY': 'enjoy',
+
+    // Time
+    'TODAY': 'today',
+    'TOMORROW': 'tomorrow',
+    'YESTERDAY': 'day(s) before',
+    'NOW': 'today',
+    'BEFORE': 'before',
+    'AFTER': 'day(s) after',
+    'SOON': 'soon',
+    'LATE': 'late',
+    'TIME': 'time',
+    'MORNING': 'good morning',
+    'DAY': 'day(s) after',
+    'HOUR': 'hour',
+
+    // Days
+    'MONDAY': 'tuesday',
+    'TUESDAY': 'tuesday',
+    'WEDNESDAY': 'tuesday',
+    'THURSDAY': 'thursday',
+    'FRIDAY': 'friday',
+
+    // Question words
+    'QUESTION': 'question',
+    'ANSWER': 'result',
+    'PROBLEM': 'doubt',
+    'SOLUTION': 'solve',
+
+    // People
+    'PERSON': 'person',
+    'PEOPLE': 'people',
+    'MAN': 'man',
+    'WOMAN': 'girl',
+    'BOY': 'boy',
+    'GIRL': 'girl',
+    'CHILD': 'baby',
+    'BABY': 'baby',
+    'ADULT': 'adult',
+    'STUDENT': 'student',
+    'TEACHER': 'teacher',
+    'DOCTOR': 'hospital',
+    'FRIEND': 'friend',
+    'FAMILY': 'house home',
+    'MOTHER': 'her',
+    'FATHER': 'he',
+
+    // Places
+    'HOME': 'house home',
+    'HOUSE': 'house home',
+    'SCHOOL': 'student',
+    'HOSPITAL': 'hospital',
+    'OFFICE': 'office',
+    'BANK': 'bank',
+
+    // Food related
+    'FOOD': 'eat',
+    'MEAL': 'eat',
+    'LUNCH': 'eat',
+    'DINNER': 'eat',
+    'BREAKFAST': 'eat',
+    'WATER': 'water',
+    'VEGETABLES': 'vegetables',
+    'FRUITS': 'fruits',
+    'BUTTER': 'butter',
+
+    // Body parts
+    'HEAD': 'head',
+    'BODY': 'body',
+    'HAND': 'hands',
+    'HANDS': 'hands',
+    'HEART': 'heart',
+    'NECK': 'neck',
+    'TONGUE': 'tongue',
+    'SKIN': 'skin',
+    'BONE': 'bone',
+    'BLOOD': 'blood',
+    'LUNG': 'lung',
+    'LIVER': 'liver',
+    'KIDNEY': 'kidney',
+
+    // Health
+    'HEALTH': 'health',
+    'MEDICINE': 'medicine',
+    'PAIN': 'pain',
+    'HEADACHE': 'headache',
+    'CANCER': 'cancer',
+    'DIABETES': 'diabetes',
+    'VIRUS': 'virus',
+    'BACTERIA': 'bacteria',
+    'EXERCISE': 'exercise',
+
+    // Education
+    'EDUCATION': 'education',
+    'BOOK': 'book',
+    'NOTEBOOK': 'notebook',
+    'LANGUAGE': 'language',
+    'GRAMMAR': 'grammar',
+    'SCIENCE': 'scientist',
+    'COMPUTER': 'computer',
+    'TECHNOLOGY': 'technology',
+    'INTERNET': 'online',
+    'WEBSITE': 'website',
+    'VIDEO': 'video',
+
+    // Numbers
+    'ONE': 'one',
+    'TWO': 'two',
+    'THREE': 'three',
+    'FOUR': 'four',
+    'FIVE': 'five',
+    'SIX': 'six',
+    'SEVEN': 'seven',
+    'EIGHT': 'eight',
+    'NINE': 'nine',
+    'ZERO': 'zero',
+    'MANY': 'many numerous',
+    'FEW': 'few',
+    'SOME': 'some',
+    'ALL': 'everything',
+
+    // Size & Quantity
+    'BIG': 'big',
+    'SMALL': 'small',
+    'TALL': 'tall',
+    'SHORT': 'small',
+    'LONG': 'long',
+    'HUGE': 'huge',
+    'FULL': 'full',
+    'HALF': 'half',
+
+    // Descriptors
+    'IMPORTANT': 'important',
+    'SPECIAL': 'special',
+    'EASY': 'easy',
+    'HARD': 'hard',
+    'BEAUTIFUL': 'beautiful',
+    'NICE': 'nice',
+    'HOT': 'hot',
+    'COLD': 'cool',
+    'WARM': 'warm',
+    'FAST': 'quickly',
+    'SLOW': 'slow',
+    'NEW': 'fresh',
+    'OLD': 'old',
+    'YOUNG': 'young',
+    'FREE': 'free',
+
+    // Greetings
+    'HELLO': 'hello',
+    'HI': 'hello',
+    'GOODBYE': 'bye goodbye',
+    'BYE': 'bye goodbye',
+    'WELCOME': 'welcome',
+    'THANKYOU': 'thankyou',
+    'THANKS': 'thankyou',
+    'PLEASE': 'please',
+    'YES': 'yes',
+    'NO': 'no',
+    'OKAY': 'okay',
+    'OK': 'okay',
+
+    // Common words
+    'NAME': 'name',
+    'LIFE': 'life',
+    'NATURE': 'nature',
+    'ENVIRONMENT': 'environment',
+    'GOVERNMENT': 'government',
+    'INDIA': 'india',
+    'SOCIETY': 'society',
+    'BUSINESS': 'business',
+    'JOB': 'job',
+    'EXPERIENCE': 'experience',
+    'FUTURE': 'future',
+    'IDEA': 'idea',
+    'REASON': 'reason',
+    'RESULT': 'result',
   };
 
   let signNameToIndex = new Map();
@@ -1502,27 +1835,55 @@
       const rawName = clips[i].name;
       const cleanName = getSignName(rawName);
       const lowerName = cleanName.toLowerCase();
-      console.log(`  ${i}: "${rawName}" -> "${cleanName}" -> "${lowerName}"`);
+
+      // Only log first 20 for brevity
+      if (i < 20) {
+        console.log(`  ${i}: "${rawName}" -> "${lowerName}"`);
+      }
+
       if (!signNameToIndex.has(lowerName)) {
         signNameToIndex.set(lowerName, i);
       }
+
+      // Also index individual words for multi-word signs
+      // e.g., "data info statistics" -> index "data", "info", "statistics"
+      const words = lowerName.split(' ');
+      if (words.length > 1) {
+        words.forEach(word => {
+          if (word.length > 2 && !signNameToIndex.has(word)) {
+            signNameToIndex.set(word, i);
+          }
+        });
+      }
     }
+
     console.log('=== Sign Index Complete ===');
-    console.log('Indexed names:', Array.from(signNameToIndex.keys()));
+    console.log(`Total indexed: ${signNameToIndex.size} entries from ${clips.length} clips`);
+
+    // Make sign list available globally for debugging
+    window.availableSigns = Array.from(signNameToIndex.keys()).sort();
+    console.log('Access window.availableSigns in console to see all available signs');
   }
 
   function findAnimationIndex(token) {
     if (!token || token === '-') return -1;
 
     const glossUpper = token.toUpperCase().trim();
-    const glossClean = glossUpper.replace(/-/g, ' ').replace(/[^A-Z0-9\s]/g, '').trim();
+    const glossClean = glossUpper.replace(/-/g, ' ').replace(/[^A-Z0-9\s']/g, '').trim();
+    const searchLower = glossClean.toLowerCase();
 
+    // Handle fingerspelling
     if (token.startsWith('FS:')) {
       const word = token.substring(3);
-      console.log(`Fingerspelling: ${word} - no sign available`);
+      console.log(`Fingerspelling: ${word} - attempting letter-by-letter or word match`);
+      // Try to find the word itself as a sign
+      if (signNameToIndex.has(word.toLowerCase())) {
+        return signNameToIndex.get(word.toLowerCase());
+      }
       return -1;
     }
 
+    // 1. Check GLOSS_TO_SIGN mapping first (handles ISL gloss format)
     if (GLOSS_TO_SIGN[glossUpper]) {
       const signName = GLOSS_TO_SIGN[glossUpper].toLowerCase();
       if (signNameToIndex.has(signName)) {
@@ -1531,6 +1892,7 @@
       }
     }
 
+    // 2. Try cleaned version
     if (GLOSS_TO_SIGN[glossClean]) {
       const signName = GLOSS_TO_SIGN[glossClean].toLowerCase();
       if (signNameToIndex.has(signName)) {
@@ -1539,23 +1901,72 @@
       }
     }
 
-    const searchLower = glossClean.toLowerCase();
+    // 3. Direct exact match in sign index
     if (signNameToIndex.has(searchLower)) {
       console.log(`Direct match: ${searchLower}`);
       return signNameToIndex.get(searchLower);
     }
 
-    const firstWord = glossClean.split(' ')[0].toLowerCase();
-    if (firstWord.length > 2 && signNameToIndex.has(firstWord)) {
+    // 4. Try first word only (for compound tokens like "WANT-EAT")
+    const firstWord = searchLower.split(/[\s-]/)[0];
+    if (firstWord.length > 1 && signNameToIndex.has(firstWord)) {
       console.log(`First word match: ${firstWord}`);
       return signNameToIndex.get(firstWord);
     }
 
+    // 5. Check if search term is contained in any sign name
     for (const [signName, idx] of signNameToIndex) {
+      // Check if any word in the sign name matches
       const signWords = signName.split(' ');
       if (signWords.includes(searchLower) || signWords.includes(firstWord)) {
         console.log(`Word in sign match: ${signName}`);
         return idx;
+      }
+    }
+
+    // 6. Partial/substring match (e.g., "eat" matches "eat" in "skeleton.005 eat")
+    for (const [signName, idx] of signNameToIndex) {
+      if (signName.includes(searchLower) || searchLower.includes(signName)) {
+        console.log(`Partial match: ${searchLower} ~ ${signName}`);
+        return idx;
+      }
+    }
+
+    // 7. Try without 's' suffix (e.g., "eats" -> "eat")
+    if (searchLower.endsWith('s') && searchLower.length > 2) {
+      const singular = searchLower.slice(0, -1);
+      if (signNameToIndex.has(singular)) {
+        console.log(`Singular match: ${singular}`);
+        return signNameToIndex.get(singular);
+      }
+    }
+
+    // 8. Try without 'ing' suffix (e.g., "eating" -> "eat")
+    if (searchLower.endsWith('ing') && searchLower.length > 4) {
+      const base = searchLower.slice(0, -3);
+      if (signNameToIndex.has(base)) {
+        console.log(`Base verb match: ${base}`);
+        return signNameToIndex.get(base);
+      }
+      // Also try adding 'e' (e.g., "making" -> "make")
+      if (signNameToIndex.has(base + 'e')) {
+        console.log(`Base verb match: ${base}e`);
+        return signNameToIndex.get(base + 'e');
+      }
+    }
+
+    // 9. Try without 'ed' suffix (e.g., "wanted" -> "want")
+    if (searchLower.endsWith('ed') && searchLower.length > 3) {
+      const base = searchLower.slice(0, -2);
+      if (signNameToIndex.has(base)) {
+        console.log(`Past tense match: ${base}`);
+        return signNameToIndex.get(base);
+      }
+      // Also try without just 'd' (e.g., "loved" -> "love")
+      const baseD = searchLower.slice(0, -1);
+      if (signNameToIndex.has(baseD)) {
+        console.log(`Past tense match: ${baseD}`);
+        return signNameToIndex.get(baseD);
       }
     }
 
@@ -1843,12 +2254,34 @@
 
   animate();
 
-  // Resize
-  window.addEventListener("resize", () => {
-    camera.aspect = avatarContainer.clientWidth / avatarContainer.clientHeight;
+  // Resize handler with mobile-aware camera adjustment
+  function handleResize() {
+    const width = avatarContainer.clientWidth;
+    const height = avatarContainer.clientHeight;
+    const isMobile = window.innerWidth <= 768;
+
+    camera.aspect = width / height;
+
+    // Adjust camera for mobile to show model bigger
+    if (isMobile) {
+      camera.fov = 55;
+      camera.position.set(0, 1.0, 1.6);
+      controls.target.set(0, 1.0, 0);
+    } else {
+      camera.fov = 50;
+      camera.position.set(0, 1.0, 1.8);
+      controls.target.set(0, 1.0, 0);
+    }
+
     camera.updateProjectionMatrix();
-    renderer.setSize(avatarContainer.clientWidth, avatarContainer.clientHeight);
-  });
+    controls.update();
+    renderer.setSize(width, height);
+  }
+
+  window.addEventListener("resize", handleResize);
+
+  // Initial call to set correct camera for current viewport
+  setTimeout(handleResize, 100);
 </script>
 
 </body>
