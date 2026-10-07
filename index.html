@@ -885,8 +885,9 @@
     name = name.replace("Skeleton|", "");
     name = name.replace("|Layer0", "");
 
-    // Remove skeleton.XXX prefix (e.g., "skeleton.005 election" -> "election")
-    name = name.replace(/^skeleton\.\d+\s+/i, "");
+    // Remove skeleton.XXX prefix - separator varies across clips
+    // ("skeleton.005 election", "Skeleton.001_name", "Skeleton.001|name.mp4")
+    name = name.replace(/^skeleton\.\d+[\s_|]+/i, "");
 
     // Remove other common suffixes/patterns
     name = name.replace(" Retarget", "");
@@ -1864,10 +1865,12 @@
   function buildSignIndex() {
     signNameToIndex.clear();
     console.log('=== Building Sign Index ===');
+
+    // Pass 1: index every clip's full cleaned name first, so a sign's own
+    // exact name always wins regardless of clip order.
     for (let i = 0; i < clips.length; i++) {
       const rawName = clips[i].name;
-      const cleanName = getSignName(rawName);
-      const lowerName = cleanName.toLowerCase();
+      const lowerName = getSignName(rawName).toLowerCase();
 
       // Only log first 20 for brevity
       if (i < 20) {
@@ -1877,13 +1880,19 @@
       if (!signNameToIndex.has(lowerName)) {
         signNameToIndex.set(lowerName, i);
       }
+    }
 
-      // Also index individual words for multi-word signs
-      // e.g., "data info statistics" -> index "data", "info", "statistics"
+    // Pass 2: also index each individual word of multi-word sign names
+    // (e.g. "i me" -> "i", "me"; "data info statistics" -> "data", "info",
+    // "statistics") so a single spoken word can resolve to the right sign.
+    // Runs after pass 1 so it never shadows a word that is itself a
+    // standalone sign (e.g. "it" vs. "it this").
+    for (let i = 0; i < clips.length; i++) {
+      const lowerName = getSignName(clips[i].name).toLowerCase();
       const words = lowerName.split(' ');
       if (words.length > 1) {
         words.forEach(word => {
-          if (word.length > 2 && !signNameToIndex.has(word)) {
+          if (word && !signNameToIndex.has(word)) {
             signNameToIndex.set(word, i);
           }
         });
@@ -1947,25 +1956,7 @@
       return signNameToIndex.get(firstWord);
     }
 
-    // 5. Check if search term is contained in any sign name
-    for (const [signName, idx] of signNameToIndex) {
-      // Check if any word in the sign name matches
-      const signWords = signName.split(' ');
-      if (signWords.includes(searchLower) || signWords.includes(firstWord)) {
-        console.log(`Word in sign match: ${signName}`);
-        return idx;
-      }
-    }
-
-    // 6. Partial/substring match (e.g., "eat" matches "eat" in "skeleton.005 eat")
-    for (const [signName, idx] of signNameToIndex) {
-      if (signName.includes(searchLower) || searchLower.includes(signName)) {
-        console.log(`Partial match: ${searchLower} ~ ${signName}`);
-        return idx;
-      }
-    }
-
-    // 7. Try without 's' suffix (e.g., "eats" -> "eat")
+    // 5. Try without 's' suffix (e.g., "eats" -> "eat")
     if (searchLower.endsWith('s') && searchLower.length > 2) {
       const singular = searchLower.slice(0, -1);
       if (signNameToIndex.has(singular)) {
@@ -1974,7 +1965,7 @@
       }
     }
 
-    // 8. Try without 'ing' suffix (e.g., "eating" -> "eat")
+    // 6. Try without 'ing' suffix (e.g., "eating" -> "eat")
     if (searchLower.endsWith('ing') && searchLower.length > 4) {
       const base = searchLower.slice(0, -3);
       if (signNameToIndex.has(base)) {
@@ -1988,7 +1979,7 @@
       }
     }
 
-    // 9. Try without 'ed' suffix (e.g., "wanted" -> "want")
+    // 7. Try without 'ed' suffix (e.g., "wanted" -> "want")
     if (searchLower.endsWith('ed') && searchLower.length > 3) {
       const base = searchLower.slice(0, -2);
       if (signNameToIndex.has(base)) {
