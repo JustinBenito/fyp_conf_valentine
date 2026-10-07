@@ -247,6 +247,15 @@
       animation: pulse 1s infinite;
     }
 
+    .recording-indicator.processing {
+      color: #f59e0b;
+    }
+
+    .recording-indicator.processing .dot {
+      background: #f59e0b;
+      animation: pulse 0.6s infinite;
+    }
+
     .translate-btn {
       padding: 8px 16px;
       background: var(--bg-dark);
@@ -848,6 +857,7 @@
   let fullTranscription = '';
   let processedText = '';  // Text that has been translated
   let pendingText = '';    // Text waiting for sentence completion
+  let pendingTranscriptions = 0; // In-flight /api/transcribe requests
 
   // Sentence queue for streaming translation
   let sentenceQueue = [];
@@ -972,6 +982,7 @@
 
     isRecording = true;
     micButton.classList.add('active');
+    recordingIndicator.classList.remove('processing');
     recordingIndicator.classList.add('active');
     recordingStatus.textContent = 'Recording...';
     statusDot.classList.add('recording');
@@ -984,7 +995,8 @@
     audioChunks1 = [];
     mediaRecorder1.start();
 
-    // Every 5 seconds, switch recorders to ensure no gaps
+    // Switch recorders periodically to ensure no gaps in audio capture.
+    // Kept short so transcriptions stream back in near-real-time.
     recordingInterval = setInterval(() => {
       if (!isRecording) return;
 
@@ -1013,25 +1025,29 @@
           }
         }, 100);
       }
-    }, 5000);
+    }, 2500);
   }
 
   function stopRecording() {
     isRecording = false;
     micButton.classList.remove('active');
     recordingIndicator.classList.remove('active');
-    recordingStatus.textContent = 'Stopped';
     statusDot.classList.remove('recording');
 
     clearInterval(recordingInterval);
 
-    // Stop both recorders
+    // Stop both recorders (their onstop handlers will send any remaining
+    // audio to transcription, which updateProcessingIndicator tracks)
     if (mediaRecorder1 && mediaRecorder1.state === 'recording') {
       mediaRecorder1.stop();
     }
     if (mediaRecorder2 && mediaRecorder2.state === 'recording') {
       mediaRecorder2.stop();
     }
+
+    // Assume processing until the in-flight requests prove otherwise
+    recordingIndicator.classList.add('processing');
+    recordingStatus.textContent = 'Processing...';
 
     // Process any remaining pending text
     setTimeout(() => {
@@ -1043,10 +1059,24 @@
           processNextSentence();
         }
       }
+      updateProcessingIndicator();
     }, 500); // Wait for final transcription to arrive
   }
 
+  function updateProcessingIndicator() {
+    if (isRecording) return;
+    if (pendingTranscriptions > 0) {
+      recordingIndicator.classList.add('processing');
+      recordingStatus.textContent = 'Processing...';
+    } else {
+      recordingIndicator.classList.remove('processing');
+      recordingStatus.textContent = 'Ready';
+    }
+  }
+
   async function sendToTranscription(audioBlob) {
+    pendingTranscriptions++;
+    updateProcessingIndicator();
     try {
       const formData = new FormData();
       formData.append('audio', audioBlob, 'audio.webm');
@@ -1067,6 +1097,9 @@
       }
     } catch (error) {
       console.error('Transcription error:', error);
+    } finally {
+      pendingTranscriptions--;
+      updateProcessingIndicator();
     }
   }
 
